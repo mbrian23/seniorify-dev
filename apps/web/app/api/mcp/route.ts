@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auditPlan, summarizePlanForManager } from "@seniorify/agent";
-import { mockSource } from "@seniorify/collector";
+import { ticketSource } from "@seniorify/collector";
 import {
   addFindings,
   createPlan,
@@ -10,6 +10,8 @@ import {
 } from "@/lib/store";
 import { seedIfEmpty } from "@/lib/seed";
 import { teamConventions } from "@/lib/conventions";
+
+const FINDING_STATUS = new Set(["open", "addressed", "defended", "overridden"]);
 
 type McpBody = {
   tool?: string;
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
         const authorId = getString(params, "authorId");
         const ticketRef = getString(params, "ticketRef");
         const planText = getString(params, "plan");
-        const ticket = await mockSource.fetchTicket(ticketRef);
+        const ticket = await ticketSource.fetchTicket(ticketRef);
         const findings = await auditPlan({
           ticket,
           plan: planText,
@@ -78,12 +80,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, result: updated });
       }
 
+      case "update_finding": {
+        const planId = getString(params, "planId");
+        const findingId = getString(params, "findingId");
+        const status = getString(params, "status");
+        if (!FINDING_STATUS.has(status)) {
+          return bad(`invalid status: ${status}`);
+        }
+        const defense = typeof params.defense === "string" ? params.defense : undefined;
+        const updated = await updateFinding(planId, findingId, {
+          status: status as "open" | "addressed" | "defended" | "overridden",
+          defense,
+        });
+        return NextResponse.json({ ok: true, result: updated });
+      }
+
       case "sign_plan": {
         const planId = getString(params, "planId");
         const authorName = getString(params, "authorName");
         const plan = await getPlan(planId);
         if (!plan) return bad(`plan not found: ${planId}`, 404);
-        const ticket = await mockSource.fetchTicket(plan.ticketRef);
+        const ticket = await ticketSource.fetchTicket(plan.ticketRef);
         const summary = await summarizePlanForManager({
           ticket,
           plan: plan.draft,
