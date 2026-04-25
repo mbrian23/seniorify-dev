@@ -192,12 +192,18 @@ export function RecurringFindingsPanel({
 }) {
   return (
     <div className="rounded-[4px] border border-zinc-200">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200">
-        <span className="text-sm text-zinc-900 lowercase">
-          recurring findings
-        </span>
-        <span className="text-xs text-zinc-500 font-mono">
-          {rows.length}
+      <div className="flex flex-col gap-1 px-6 py-4 border-b border-zinc-200">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-zinc-900 lowercase">
+            recurring findings
+          </span>
+          <span className="text-xs text-zinc-500 font-mono">
+            {rows.length}
+          </span>
+        </div>
+        <span className="text-xs text-zinc-500">
+          same finding raised across multiple plans — candidates to publish as
+          team conventions.
         </span>
       </div>
       {rows.length === 0 ? (

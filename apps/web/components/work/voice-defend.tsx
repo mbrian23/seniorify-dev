@@ -39,9 +39,11 @@ const TOOLS = [
 export function VoiceDefend({
   planId,
   finding,
+  onClose,
 }: {
   planId: string;
   finding: Finding;
+  onClose?: () => void;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<
@@ -50,6 +52,7 @@ export function VoiceDefend({
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [verdict, setVerdict] = useState<EvaluateResult | null>(null);
+  const [evaluating, setEvaluating] = useState(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
@@ -57,7 +60,6 @@ export function VoiceDefend({
   const transcriptRef = useRef<Turn[]>([]);
   const latestUtteranceRef = useRef<string>("");
 
-  // Keep ref in sync with state for use inside async tool handlers.
   useEffect(() => {
     transcriptRef.current = transcript;
   }, [transcript]);
@@ -88,6 +90,7 @@ export function VoiceDefend({
         return;
       }
 
+      setEvaluating(true);
       try {
         const res = await fetch("/api/realtime/evaluate", {
           method: "POST",
@@ -106,7 +109,6 @@ export function VoiceDefend({
         if (!json.ok) throw new Error(json.error);
 
         setVerdict(json.result);
-
         sendEvent({
           type: "conversation.item.create",
           item: {
@@ -135,9 +137,9 @@ export function VoiceDefend({
             throw new Error(`defend failed: ${recordRes.status}`);
           }
           setStatus("ending");
-          // Refresh after a beat so the model finishes speaking the close.
           setTimeout(() => {
             router.refresh();
+            onClose?.();
           }, 2500);
         }
       } catch (e) {
@@ -156,9 +158,11 @@ export function VoiceDefend({
           },
         });
         sendEvent({ type: "response.create" });
+      } finally {
+        setEvaluating(false);
       }
     },
-    [planId, finding.id, router, sendEvent],
+    [planId, finding.id, router, sendEvent, onClose],
   );
 
   const stop = useCallback(() => {
@@ -169,6 +173,11 @@ export function VoiceDefend({
     pcRef.current = null;
     setStatus("idle");
   }, []);
+
+  const handleEnd = useCallback(() => {
+    stop();
+    onClose?.();
+  }, [stop, onClose]);
 
   const start = useCallback(async () => {
     setError(null);
@@ -183,10 +192,7 @@ export function VoiceDefend({
         method: "POST",
       });
       const sessionJson = (await sessionRes.json()) as
-        | {
-            ok: true;
-            result: { clientSecret: string; model: string };
-          }
+        | { ok: true; result: { clientSecret: string; model: string } }
         | { ok: false; error: string };
       if (!sessionJson.ok) throw new Error(sessionJson.error);
       const { clientSecret, model } = sessionJson.result;
@@ -306,27 +312,61 @@ export function VoiceDefend({
 
   const isLive = status === "live" || status === "ending";
 
+  const verdictStyles =
+    verdict?.verdict === "accept"
+      ? "border-[#15803D]/30 bg-[#15803D]/5 text-[#15803D]"
+      : verdict?.verdict === "reject"
+        ? "border-[#B91C1C]/30 bg-red-50 text-[#B91C1C]"
+        : "border-amber-300/40 bg-amber-50 text-amber-800";
+
   return (
-    <div className="rounded-[4px] border border-zinc-300 bg-zinc-50 p-5 flex flex-col gap-4">
+    <div className="rounded-[4px] border border-zinc-300 bg-white p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">defend your demo · voice</span>
-          <p className="text-sm font-semibold text-zinc-900">{finding.title}</p>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${
+              isLive
+                ? "bg-[#15803D] animate-pulse"
+                : status === "connecting"
+                  ? "bg-amber-500 animate-pulse"
+                  : "bg-zinc-300"
+            }`}
+            aria-hidden
+          />
+          <span className="font-mono text-[11px] uppercase tracking-wide text-zinc-500">
+            voice defense
+          </span>
+          {evaluating ? (
+            <span className="font-mono text-[11px] text-amber-700 animate-pulse">
+              · senior thinking
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           {!isLive ? (
-            <button
-              type="button"
-              onClick={start}
-              disabled={status === "connecting"}
-              className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 disabled:opacity-40"
-            >
-              {status === "connecting" ? "connecting..." : "Start voice defense"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={start}
+                disabled={status === "connecting"}
+                className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 disabled:opacity-40"
+              >
+                {status === "connecting" ? "connecting..." : "Start"}
+              </button>
+              {onClose ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-[4px] border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </>
           ) : (
             <button
               type="button"
-              onClick={stop}
+              onClick={handleEnd}
               className="rounded-[4px] border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50"
             >
               End
@@ -335,39 +375,61 @@ export function VoiceDefend({
         </div>
       </div>
 
-      {transcript.length > 0 ? (
-        <div className="flex flex-col gap-2 max-h-64 overflow-y-auto rounded-[4px] border border-zinc-200 bg-white p-3">
-          {transcript.map((t, i) => (
-            <div key={i} className="text-sm leading-relaxed">
-              <span
-                className={
-                  t.role === "junior"
-                    ? "font-mono text-[11px] uppercase tracking-wide text-zinc-500 mr-2"
-                    : "font-mono text-[11px] uppercase tracking-wide text-[#15803D] mr-2"
-                }
-              >
-                {t.role}
-              </span>
-              <span className="text-zinc-900">{t.text}</span>
-            </div>
-          ))}
-        </div>
-      ) : isLive ? (
+      {transcript.length === 0 && isLive ? (
         <p className="text-xs text-zinc-500 italic">
           listening — start speaking when you&apos;re ready.
         </p>
       ) : null}
 
+      {transcript.length > 0 ? (
+        <div className="flex flex-col gap-2 max-h-72 overflow-y-auto rounded-[4px] border border-zinc-100 bg-zinc-50/60 p-3">
+          {transcript.map((t, i) => (
+            <div
+              key={i}
+              className={`flex ${t.role === "junior" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-[6px] px-3 py-2 text-sm leading-relaxed ${
+                  t.role === "junior"
+                    ? "bg-zinc-900 text-white"
+                    : "bg-white border border-zinc-200 text-zinc-900"
+                }`}
+              >
+                <div
+                  className={`font-mono text-[10px] uppercase tracking-wide mb-0.5 ${
+                    t.role === "junior" ? "text-zinc-400" : "text-[#15803D]"
+                  }`}
+                >
+                  {t.role === "junior" ? "you" : "senior"}
+                </div>
+                {t.text}
+              </div>
+            </div>
+          ))}
+          {evaluating ? (
+            <div className="flex justify-start">
+              <div className="rounded-[6px] bg-white border border-zinc-200 px-3 py-2 text-sm text-zinc-500 italic inline-flex items-center gap-1">
+                <span className="animate-pulse">●</span>
+                <span className="animate-pulse [animation-delay:120ms]">●</span>
+                <span className="animate-pulse [animation-delay:240ms]">●</span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {verdict ? (
-        <div className="rounded-[4px] border border-zinc-200 bg-white p-3 text-sm">
-          <span className="font-mono text-[11px] uppercase tracking-wide text-zinc-500 mr-2">
-            verdict
-          </span>
-          <span className="text-zinc-900">
+        <div
+          className={`rounded-[4px] border p-3 text-sm ${verdictStyles}`}
+        >
+          <div className="font-mono text-[10px] uppercase tracking-wide mb-1">
+            {verdict.verdict}
+          </div>
+          <div>
             {verdict.verdict === "accept"
-              ? `accepted — recorded as: "${verdict.recordedDefense}"`
-              : `${verdict.verdict} — ${verdict.followup}`}
-          </span>
+              ? `recorded as: "${verdict.recordedDefense}"`
+              : verdict.followup}
+          </div>
         </div>
       ) : null}
 

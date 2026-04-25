@@ -1,20 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
-import type { Finding, Plan, Severity } from "@seniorify/core";
+import { useState, useTransition } from "react";
+import type { Finding, Plan } from "@seniorify/core";
 import { SeverityDot } from "./severity-dot";
 import { VoiceDefend } from "./voice-defend";
 
 type DefendState = {
   findingId: string;
   text: string;
-};
-
-const SEVERITY_RANK: Record<Severity, number> = {
-  block: 0,
-  warn: 1,
-  ok: 2,
 };
 
 async function callMcp(
@@ -37,6 +31,7 @@ export function AuditPanel({ plan }: { plan: Plan }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [defending, setDefending] = useState<DefendState | null>(null);
+  const [voicingFindingId, setVoicingFindingId] = useState<string | null>(null);
   const [busyFindingId, setBusyFindingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
@@ -45,18 +40,20 @@ export function AuditPanel({ plan }: { plan: Plan }) {
   const openCount = findings.filter((f) => f.status === "open").length;
   const canSign = !plan.signedAt && openCount === 0 && findings.length > 0;
 
-  const topOpenFinding = useMemo(() => {
-    const openFindings = findings.filter((f) => f.status === "open");
-    if (openFindings.length === 0) return null;
-    return [...openFindings].sort(
-      (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity],
-    )[0];
-  }, [findings]);
-
   function refresh() {
     startTransition(() => {
       router.refresh();
     });
+  }
+
+  function startVoice(findingId: string) {
+    setDefending(null);
+    setVoicingFindingId(findingId);
+  }
+
+  function startTyping(findingId: string) {
+    setVoicingFindingId(null);
+    setDefending({ findingId, text: "" });
   }
 
   async function handleAddress(finding: Finding) {
@@ -118,6 +115,11 @@ export function AuditPanel({ plan }: { plan: Plan }) {
         <span className="font-mono inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] border border-zinc-200 px-1.5 text-xs text-zinc-700">
           {findings.length}
         </span>
+        {openCount > 0 ? (
+          <span className="font-mono text-[11px] text-zinc-500">
+            {openCount} open
+          </span>
+        ) : null}
       </div>
 
       {findings.length === 0 ? (
@@ -126,147 +128,172 @@ export function AuditPanel({ plan }: { plan: Plan }) {
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {findings.map((f) => (
-            <li
-              key={f.id}
-              className="rounded-[4px] border border-zinc-200 p-4"
-            >
-              <div className="flex items-start gap-4">
-                <div className="pt-1.5">
-                  <SeverityDot severity={f.severity} />
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] uppercase tracking-wide text-zinc-500">
-                      {f.category}
-                    </span>
-                    <span className="font-mono text-[11px] text-zinc-400">
-                      ·
-                    </span>
-                    <span className="font-mono text-[11px] text-zinc-400">
-                      {f.id}
-                    </span>
-                  </div>
-                  <div className="text-sm font-semibold text-zinc-900 truncate">
-                    {f.title}
-                  </div>
-                  <div className="text-sm text-zinc-500 leading-relaxed line-clamp-2">
-                    {f.detail}
-                  </div>
+          {findings.map((f) => {
+            const isOpen = f.status === "open";
+            const isTyping = defending?.findingId === f.id;
+            const isVoicing = voicingFindingId === f.id;
+            const showActions = isOpen && !isTyping && !isVoicing;
 
-                  {f.learn ? (
-                    <div className="mt-2 rounded-[4px] border border-zinc-200 bg-zinc-50 px-3 py-2">
-                      <div className="font-mono text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                        learn
+            return (
+              <li
+                key={f.id}
+                className={`rounded-[4px] border p-4 ${
+                  isOpen ? "border-zinc-200" : "border-zinc-100 bg-zinc-50/40"
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="pt-1.5">
+                    <SeverityDot severity={f.severity} />
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] uppercase tracking-wide text-zinc-500">
+                        {f.category}
+                      </span>
+                      <span className="font-mono text-[11px] text-zinc-400">
+                        ·
+                      </span>
+                      <span className="font-mono text-[11px] text-zinc-400">
+                        {f.id}
+                      </span>
+                      {!isOpen ? (
+                        <span className="ml-auto font-mono text-[10px] uppercase tracking-wide text-zinc-500">
+                          {f.status}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="text-sm font-semibold text-zinc-900">
+                      {f.title}
+                    </div>
+                    <div className="text-sm text-zinc-500 leading-relaxed">
+                      {f.detail}
+                    </div>
+
+                    {f.learn ? (
+                      <div
+                        className={`mt-2 rounded-[4px] border-l-2 px-3 py-2 ${
+                          isOpen
+                            ? "border-l-zinc-900 bg-zinc-50 border border-zinc-200"
+                            : "border-l-zinc-300 bg-white/60 border border-zinc-100"
+                        }`}
+                      >
+                        <div className="font-mono text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                          why x and not y
+                        </div>
+                        <div className="text-sm text-zinc-700 leading-relaxed">
+                          {f.learn}
+                        </div>
                       </div>
-                      <div className="text-sm text-zinc-700 leading-relaxed">
-                        {f.learn}
+                    ) : null}
+
+                    {f.status === "addressed" ? (
+                      <div className="mt-2 flex items-start gap-2 text-sm italic text-zinc-600">
+                        <span aria-hidden className="text-[#15803D]">
+                          ✓
+                        </span>
+                        <span>{f.defense ?? "addressed"}</span>
                       </div>
-                    </div>
-                  ) : null}
+                    ) : null}
+                    {f.status === "defended" && f.defense ? (
+                      <div className="mt-2 flex items-start gap-2 text-sm italic text-zinc-600">
+                        <span aria-hidden className="text-[#15803D]">
+                          ✓
+                        </span>
+                        <span>{f.defense}</span>
+                      </div>
+                    ) : null}
+                    {f.status === "overridden" ? (
+                      <div className="mt-2 flex items-start gap-2 text-sm italic text-[#B91C1C]">
+                        <span aria-hidden>!</span>
+                        <span>{f.defense ?? "overridden"}</span>
+                      </div>
+                    ) : null}
 
-                  {f.status === "addressed" && f.defense ? (
-                    <div className="mt-2 flex items-start gap-2 text-sm italic text-zinc-600">
-                      <span aria-hidden className="text-[#15803D]">
-                        ✓
-                      </span>
-                      <span>{f.defense}</span>
-                    </div>
-                  ) : null}
-                  {f.status === "addressed" && !f.defense ? (
-                    <div className="mt-2 flex items-center gap-2 text-sm italic text-zinc-600">
-                      <span aria-hidden className="text-[#15803D]">
-                        ✓
-                      </span>
-                      <span>addressed</span>
-                    </div>
-                  ) : null}
-                  {f.status === "defended" && f.defense ? (
-                    <div className="mt-2 flex items-start gap-2 text-sm italic text-zinc-600">
-                      <span aria-hidden className="text-[#15803D]">
-                        ✓
-                      </span>
-                      <span>{f.defense}</span>
-                    </div>
-                  ) : null}
-                  {f.status === "overridden" ? (
-                    <div className="mt-2 flex items-start gap-2 text-sm italic text-[#B91C1C]">
-                      <span aria-hidden>!</span>
-                      <span>{f.defense ?? "overridden"}</span>
-                    </div>
-                  ) : null}
-
-                  {defending?.findingId === f.id ? (
-                    <div className="mt-3 flex flex-col gap-2">
-                      <textarea
-                        value={defending.text}
-                        onChange={(e) =>
-                          setDefending({
-                            findingId: f.id,
-                            text: e.target.value,
-                          })
-                        }
-                        rows={3}
-                        placeholder="explain your reasoning..."
-                        className="rounded-[4px] border border-zinc-200 p-3 font-sans text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 resize-none"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDefendSubmit(f.id, defending.text)
+                    {isTyping ? (
+                      <div className="mt-3 flex flex-col gap-2">
+                        <textarea
+                          value={defending.text}
+                          onChange={(e) =>
+                            setDefending({
+                              findingId: f.id,
+                              text: e.target.value,
+                            })
                           }
-                          disabled={
-                            busyFindingId === f.id || !defending.text.trim()
-                          }
-                          className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          submit defense
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDefending(null)}
-                          disabled={busyFindingId === f.id}
-                          className="rounded-[4px] border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50"
-                        >
-                          cancel
-                        </button>
+                          rows={3}
+                          placeholder="explain your reasoning..."
+                          className="rounded-[4px] border border-zinc-200 p-3 font-sans text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 resize-none"
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDefendSubmit(f.id, defending.text)
+                            }
+                            disabled={
+                              busyFindingId === f.id || !defending.text.trim()
+                            }
+                            className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            submit defense
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDefending(null)}
+                            disabled={busyFindingId === f.id}
+                            className="rounded-[4px] border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50"
+                          >
+                            cancel
+                          </button>
+                        </div>
                       </div>
+                    ) : null}
+
+                    {isVoicing ? (
+                      <div className="mt-3">
+                        <VoiceDefend
+                          planId={plan.id}
+                          finding={f}
+                          onClose={() => setVoicingFindingId(null)}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {showActions ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAddress(f)}
+                        disabled={busyFindingId === f.id || isPending}
+                        className="rounded-[4px] border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                      >
+                        Address
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startTyping(f.id)}
+                        disabled={busyFindingId === f.id || isPending}
+                        className="rounded-[4px] border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+                      >
+                        Defend
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startVoice(f.id)}
+                        disabled={busyFindingId === f.id || isPending}
+                        className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 disabled:opacity-40 inline-flex items-center gap-1.5"
+                      >
+                        <span aria-hidden>●</span>
+                        Voice
+                      </button>
                     </div>
                   ) : null}
                 </div>
-
-                {f.status === "open" && defending?.findingId !== f.id ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleAddress(f)}
-                      disabled={busyFindingId === f.id || isPending}
-                      className="rounded-[4px] border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-                    >
-                      Address
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDefending({ findingId: f.id, text: "" })
-                      }
-                      disabled={busyFindingId === f.id || isPending}
-                      className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 disabled:opacity-40"
-                    >
-                      Defend
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
-
-      {topOpenFinding ? (
-        <VoiceDefend planId={plan.id} finding={topOpenFinding} />
-      ) : null}
 
       {error ? (
         <div className="rounded-[4px] border border-[#B91C1C]/30 bg-red-50 p-3 text-xs text-[#B91C1C] font-mono">
