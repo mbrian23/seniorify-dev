@@ -9,6 +9,8 @@ export const FindingCategory = z.enum([
   "performance",
   "simplicity",
   "ownership",
+  "convention",
+  "compliance",
 ]);
 export type FindingCategory = z.infer<typeof FindingCategory>;
 
@@ -32,9 +34,19 @@ export const Plan = z.object({
   findings: z.array(Finding).default([]),
   signedAt: z.string().optional(),
   signedPlan: z.string().optional(),
+  /**
+   * One-sentence plain-English summary, generated at sign time.
+   * Powers the manager's scannable dashboard and weekly digest.
+   */
+  summary: z.string().optional(),
   createdAt: z.string(),
 });
 export type Plan = z.infer<typeof Plan>;
+
+export const TeamConventions = z.object({
+  rules: z.array(z.string()).default([]),
+});
+export type TeamConventions = z.infer<typeof TeamConventions>;
 
 export const TicketContext = z.object({
   ref: z.string(),
