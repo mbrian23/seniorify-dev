@@ -102,7 +102,7 @@ export function AuditPanel({ plan }: { plan: Plan }) {
     try {
       await callMcp("sign_plan", {
         planId: plan.id,
-        authorName: "Ana Pereira",
+        authorName: "Martin Brian",
       });
       router.push("/manager");
     } catch (e) {
@@ -153,6 +153,17 @@ export function AuditPanel({ plan }: { plan: Plan }) {
                   <div className="text-sm text-zinc-500 leading-relaxed line-clamp-2">
                     {f.detail}
                   </div>
+
+                  {f.learn ? (
+                    <div className="mt-2 rounded-[4px] border border-zinc-200 bg-zinc-50 px-3 py-2">
+                      <div className="font-mono text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                        learn
+                      </div>
+                      <div className="text-sm text-zinc-700 leading-relaxed">
+                        {f.learn}
+                      </div>
+                    </div>
+                  ) : null}
 
                   {f.status === "addressed" && f.defense ? (
                     <div className="mt-2 flex items-start gap-2 text-sm italic text-zinc-600">

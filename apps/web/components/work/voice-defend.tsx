@@ -17,8 +17,8 @@ Behavior:
 - Greet briefly. Read the active finding aloud once (title + a short paraphrase of the detail). Then ask them to defend it.
 - After the junior speaks any substantive answer (more than ~5 words), CALL evaluate_defense. Do not respond with your own analysis first.
 - The tool returns either a "followup" string (probe or reject) or a "recordedDefense" string (accept).
-  - If followup: voice it verbatim, then wait for the junior's next answer.
-  - If recordedDefense: tell the junior "got it — recorded as: <recordedDefense>" and end the session politely.
+  - If followup: voice it verbatim, then wait for the junior's next answer. Followups will be "Why X and not Y?" questions — deliver them in a curious, not adversarial, tone.
+  - If recordedDefense (accept): say "got it — recorded as: <recordedDefense>." Then voice the active finding's "learn" line verbatim as the takeaway, prefixed with "and the takeaway here is:". Then close politely.
 - Never give the junior the answer. Never invent risks beyond the active finding. Never accept a defense yourself — only the tool can.
 - Keep your spoken turns short. You are a relay, not a coach.`;
 
@@ -220,6 +220,7 @@ export function VoiceDefend({
               `- category: ${finding.category}`,
               `- title: ${finding.title}`,
               `- detail: ${finding.detail}`,
+              `- learn: ${finding.learn ?? "(not provided — skip the takeaway line)"}`,
             ].join("\n"),
             tools: TOOLS,
             tool_choice: "auto",

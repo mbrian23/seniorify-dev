@@ -50,7 +50,7 @@ export function PlanPanel({
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-zinc-500">submitted by</span>
         <span className="text-sm text-zinc-900">
-          ana{" "}
+          martin{" "}
           <span className="font-mono text-zinc-500">
             · {relativeTime(plan.createdAt)}
           </span>

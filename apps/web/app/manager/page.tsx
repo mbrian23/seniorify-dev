@@ -6,7 +6,9 @@ import {
 } from "../../components/manager/team-table";
 import {
   RecurringFindingsPanel,
+  TopicsByAuthorPanel,
   buildRecurringFindings,
+  buildTopicsByAuthor,
 } from "../../components/manager/recurring-findings";
 import {
   RecentSignedPlans,
@@ -42,6 +44,7 @@ export default async function ManagerPage() {
 
   const teamRows = buildTeamRows(plans);
   const recurring = buildRecurringFindings(plans);
+  const topicsByAuthor = buildTopicsByAuthor(plans);
   const recent = getRecentSignedPlans(plans, 8);
 
   const empty = plans.length === 0;
@@ -131,6 +134,10 @@ export default async function ManagerPage() {
           <div className="col-span-2">
             <RecurringFindingsPanel rows={recurring} />
           </div>
+        </section>
+
+        <section>
+          <TopicsByAuthorPanel rows={topicsByAuthor} />
         </section>
 
         <section>

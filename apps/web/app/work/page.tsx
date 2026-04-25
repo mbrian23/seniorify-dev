@@ -39,7 +39,7 @@ export default async function WorkPage() {
             <span className="text-xs text-zinc-500">/ work</span>
           </div>
           <span className="text-xs text-zinc-500">
-            live audit · ana pereira
+            live audit · martin brian
           </span>
         </header>
 

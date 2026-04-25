@@ -93,6 +93,14 @@ export type ClosingSlide = {
   href: string;
 };
 
+export type HorizonSlide = {
+  kind: "horizon";
+  eyebrow: string;
+  title: string;
+  body?: string;
+  contexts: ReadonlyArray<{ label: string; headline: string; body: string }>;
+};
+
 export type Slide =
   | TitleSlide
   | StatementSlide
@@ -104,7 +112,8 @@ export type Slide =
   | MechanismSlide
   | StackSlide
   | CatchesSlide
-  | ClosingSlide;
+  | ClosingSlide
+  | HorizonSlide;
 
 export const SLIDES: ReadonlyArray<Slide> = [
   {
@@ -184,8 +193,8 @@ export const SLIDES: ReadonlyArray<Slide> = [
   {
     kind: "statement",
     eyebrow: "the objective",
-    title: "the junior understands what's being shipped.",
-    body: "not approves. understands. can defend the change in standup, in review, six months from now in a postmortem.",
+    title: "the junior learns what's being shipped.",
+    body: "not approves. understands. the libraries, the tradeoffs, the why — well enough to defend the change in standup, in review, six months from now in a postmortem.",
   },
   {
     kind: "mechanism",
@@ -220,8 +229,8 @@ export const SLIDES: ReadonlyArray<Slide> = [
     sides: [
       {
         label: "for the junior",
-        headline: "they understand what they ship.",
-        body: "the questions a senior would ask — surfaced while the work is still in flight. by the time the PR opens, the junior owns the answer.",
+        headline: "they learn what they ship.",
+        body: "the questions a senior would ask — the libraries, the tradeoffs, the why — surfaced while the work is still in flight. by the time the PR opens, the junior owns the answer.",
       },
       {
         label: "for the manager",
@@ -301,6 +310,29 @@ export const SLIDES: ReadonlyArray<Slide> = [
       { name: "vercel oidc", note: "service-to-service auth without long-lived keys." },
       { name: "vercel cli", note: "every deploy of this very deck." },
       { name: "vercel domains", note: "seniorify.dev + deck.seniorify.dev." },
+    ],
+  },
+  {
+    kind: "horizon",
+    eyebrow: "the horizon",
+    title: "the next classroom runs the same loop.",
+    body: "what works for a junior in a real codebase works for a student in a coursework repo — the senior they don't have, on demand.",
+    contexts: [
+      {
+        label: "universities",
+        headline: "cs programs, with a senior in every repo.",
+        body: "students push code; seniorify surfaces the libraries, the tradeoffs, the why. instructors see how each student reasoned — not just what they shipped.",
+      },
+      {
+        label: "bootcamps",
+        headline: "the missing senior in cohort learning.",
+        body: "every assignment becomes a conversation about choices, not a screenshot of working code. the loop scales where mentors can't.",
+      },
+      {
+        label: "onboarding",
+        headline: "ramp onto a stack the way a senior would teach it.",
+        body: "new hires meet the conventions, the internal libraries, and the team's hard-won tradeoffs in their first week — in flight, not in a wiki.",
+      },
     ],
   },
   {

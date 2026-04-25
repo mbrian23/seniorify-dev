@@ -14,6 +14,7 @@ import { seedIfEmpty } from "@/lib/seed";
 import { getTeamConventions } from "@/lib/conventions";
 
 const FINDING_STATUS = new Set(["open", "addressed", "defended", "overridden"]);
+const MCP_PROTOCOL_VERSION = "2025-03-26";
 
 /**
  * Runs the audit pipeline for a plan in the background after the HTTP
@@ -38,15 +39,6 @@ async function runAudit(planId: string, ticketRef: string, planText: string) {
   }
 }
 
-type McpBody = {
-  tool?: string;
-  params?: Record<string, unknown>;
-};
-
-function bad(message: string, status = 400) {
-  return NextResponse.json({ ok: false, error: message }, { status });
-}
-
 function getString(params: Record<string, unknown>, key: string): string {
   const v = params[key];
   if (typeof v !== "string" || v.length === 0) {
@@ -55,23 +47,14 @@ function getString(params: Record<string, unknown>, key: string): string {
   return v;
 }
 
-export async function POST(req: NextRequest) {
-  await seedIfEmpty();
+type ToolResult = { ok: true; result: unknown } | { ok: false; error: string };
 
-  let body: McpBody;
-  try {
-    body = (await req.json()) as McpBody;
-  } catch {
-    return bad("invalid json body");
-  }
-
-  const tool = body.tool;
-  const params = body.params ?? {};
-  const origin = new URL(req.url).origin;
+async function dispatchTool(
+  tool: string,
+  params: Record<string, unknown>,
+  origin: string,
+): Promise<ToolResult> {
   const auditUrlFor = (planId: string) => `${origin}/work/${planId}`;
-
-  if (!tool) return bad("missing tool");
-
   try {
     switch (tool) {
       case "submit_plan": {
@@ -83,18 +66,16 @@ export async function POST(req: NextRequest) {
           ticketRef,
           draft: planText,
         });
-        // Decoupled: respond now, run the audit after.
         after(runAudit(created.id, ticketRef, planText));
-        return NextResponse.json({
+        return {
           ok: true,
           result: {
             planId: created.id,
             status: "auditing",
             auditUrl: auditUrlFor(created.id),
           },
-        });
+        };
       }
-
       case "defend": {
         const planId = getString(params, "planId");
         const findingId = getString(params, "findingId");
@@ -103,29 +84,28 @@ export async function POST(req: NextRequest) {
           status: "defended",
           defense,
         });
-        return NextResponse.json({ ok: true, result: updated });
+        return { ok: true, result: updated };
       }
-
       case "update_finding": {
         const planId = getString(params, "planId");
         const findingId = getString(params, "findingId");
         const status = getString(params, "status");
         if (!FINDING_STATUS.has(status)) {
-          return bad(`invalid status: ${status}`);
+          return { ok: false, error: `invalid status: ${status}` };
         }
-        const defense = typeof params.defense === "string" ? params.defense : undefined;
+        const defense =
+          typeof params.defense === "string" ? params.defense : undefined;
         const updated = await updateFinding(planId, findingId, {
           status: status as "open" | "addressed" | "defended" | "overridden",
           defense,
         });
-        return NextResponse.json({ ok: true, result: updated });
+        return { ok: true, result: updated };
       }
-
       case "sign_plan": {
         const planId = getString(params, "planId");
         const authorName = getString(params, "authorName");
         const plan = await getPlan(planId);
-        if (!plan) return bad(`plan not found: ${planId}`, 404);
+        if (!plan) return { ok: false, error: `plan not found: ${planId}` };
         const ticket = await ticketSource.fetchTicket(plan.ticketRef);
         const summary = await summarizePlanForManager({
           ticket,
@@ -139,24 +119,245 @@ export async function POST(req: NextRequest) {
           authorName,
         });
         const signed = await signPlan(planId, summary);
-        return NextResponse.json({ ok: true, result: signed });
+        return { ok: true, result: signed };
       }
-
       case "get_audit": {
         const planId = getString(params, "planId");
         const plan = await getPlan(planId);
-        if (!plan) return bad(`plan not found: ${planId}`, 404);
-        return NextResponse.json({
+        if (!plan) return { ok: false, error: `plan not found: ${planId}` };
+        return {
           ok: true,
           result: { ...plan, auditUrl: auditUrlFor(planId) },
-        });
+        };
       }
-
       default:
-        return bad("unknown tool");
+        return { ok: false, error: `unknown tool: ${tool}` };
     }
   } catch (e) {
-    const message = e instanceof Error ? e.message : "unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return { ok: false, error: e instanceof Error ? e.message : "unknown error" };
   }
+}
+
+const TOOL_DEFINITIONS = [
+  {
+    name: "submit_plan",
+    description:
+      "Audit a plain-English plan against the team's conventions. Returns a planId immediately; findings populate asynchronously. Poll get_audit until findings is non-empty.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        authorId: { type: "string", description: "Junior's handle (e.g. github username)" },
+        ticketRef: { type: "string", description: "Ticket reference, e.g. owner/repo#123 or a slug" },
+        plan: { type: "string", description: "Plain-English plan, 3-8 lines" },
+      },
+      required: ["authorId", "ticketRef", "plan"],
+    },
+  },
+  {
+    name: "defend",
+    description: "Record a one-line defense for a finding. Marks the finding as 'defended'.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        planId: { type: "string" },
+        findingId: { type: "string" },
+        defense: { type: "string", description: "One-line justification, visible to manager" },
+      },
+      required: ["planId", "findingId", "defense"],
+    },
+  },
+  {
+    name: "update_finding",
+    description:
+      "Update a finding's status. Use to mark addressed, defended, or overridden. Defense text optional but recommended for defended/overridden.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        planId: { type: "string" },
+        findingId: { type: "string" },
+        status: {
+          type: "string",
+          enum: ["open", "addressed", "defended", "overridden"],
+        },
+        defense: { type: "string" },
+      },
+      required: ["planId", "findingId", "status"],
+    },
+  },
+  {
+    name: "sign_plan",
+    description:
+      "Freeze the plan once every finding is resolved. Generates the manager-readable summary.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        planId: { type: "string" },
+        authorName: { type: "string", description: "Display name of the junior signing the plan" },
+      },
+      required: ["planId", "authorName"],
+    },
+  },
+  {
+    name: "get_audit",
+    description: "Read back a plan with its findings, decisions, and audit URL.",
+    inputSchema: {
+      type: "object",
+      properties: { planId: { type: "string" } },
+      required: ["planId"],
+    },
+  },
+] as const;
+
+type JsonRpcRequest = {
+  jsonrpc: "2.0";
+  id?: string | number | null;
+  method: string;
+  params?: Record<string, unknown>;
+};
+
+type JsonRpcResponse = {
+  jsonrpc: "2.0";
+  id: string | number | null;
+  result?: unknown;
+  error?: { code: number; message: string; data?: unknown };
+};
+
+function rpcResult(id: string | number | null, result: unknown): JsonRpcResponse {
+  return { jsonrpc: "2.0", id, result };
+}
+
+function rpcError(
+  id: string | number | null,
+  code: number,
+  message: string,
+  data?: unknown,
+): JsonRpcResponse {
+  return { jsonrpc: "2.0", id, error: { code, message, data } };
+}
+
+async function handleJsonRpc(
+  req: JsonRpcRequest,
+  origin: string,
+): Promise<JsonRpcResponse | null> {
+  const id = req.id ?? null;
+  const isNotification = req.id === undefined || req.id === null;
+
+  switch (req.method) {
+    case "initialize": {
+      return rpcResult(id, {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: { name: "seniorify", version: "0.1.0" },
+        instructions:
+          "Audit AI-assisted coding plans before code is written. Submit a plain-English plan with submit_plan, surface findings to the user, let them address/defend/override, then sign_plan.",
+      });
+    }
+    case "notifications/initialized":
+    case "notifications/cancelled":
+    case "notifications/progress":
+      return null;
+    case "ping":
+      return rpcResult(id, {});
+    case "tools/list": {
+      return rpcResult(id, { tools: TOOL_DEFINITIONS });
+    }
+    case "tools/call": {
+      const params = (req.params ?? {}) as {
+        name?: string;
+        arguments?: Record<string, unknown>;
+      };
+      if (typeof params.name !== "string") {
+        return rpcError(id, -32602, "missing tool name");
+      }
+      const out = await dispatchTool(
+        params.name,
+        params.arguments ?? {},
+        origin,
+      );
+      if (!out.ok) {
+        return rpcResult(id, {
+          isError: true,
+          content: [{ type: "text", text: out.error }],
+        });
+      }
+      return rpcResult(id, {
+        content: [{ type: "text", text: JSON.stringify(out.result, null, 2) }],
+        structuredContent: out.result,
+      });
+    }
+    default:
+      if (isNotification) return null;
+      return rpcError(id, -32601, `method not found: ${req.method}`);
+  }
+}
+
+function isJsonRpc(body: unknown): body is JsonRpcRequest {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    (body as { jsonrpc?: unknown }).jsonrpc === "2.0" &&
+    typeof (body as { method?: unknown }).method === "string"
+  );
+}
+
+export async function GET() {
+  return NextResponse.json({
+    name: "seniorify",
+    version: "0.1.0",
+    protocol: "mcp",
+    protocolVersion: MCP_PROTOCOL_VERSION,
+    transport: "http",
+    tools: TOOL_DEFINITIONS.map((t) => t.name),
+  });
+}
+
+export async function POST(req: NextRequest) {
+  await seedIfEmpty();
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      rpcError(null, -32700, "parse error"),
+      { status: 400 },
+    );
+  }
+
+  const origin = new URL(req.url).origin;
+
+  // JSON-RPC 2.0 (real MCP clients) — single request or batch.
+  if (Array.isArray(body)) {
+    const responses = (
+      await Promise.all(
+        body.map((entry) =>
+          isJsonRpc(entry)
+            ? handleJsonRpc(entry, origin)
+            : Promise.resolve(rpcError(null, -32600, "invalid request")),
+        ),
+      )
+    ).filter((r): r is JsonRpcResponse => r !== null);
+    if (responses.length === 0) return new NextResponse(null, { status: 202 });
+    return NextResponse.json(responses);
+  }
+
+  if (isJsonRpc(body)) {
+    const response = await handleJsonRpc(body, origin);
+    if (response === null) return new NextResponse(null, { status: 202 });
+    return NextResponse.json(response);
+  }
+
+  // Legacy `{tool, params}` path — used by the skill / cursor rule via curl.
+  const legacy = body as { tool?: string; params?: Record<string, unknown> };
+  if (!legacy.tool) {
+    return NextResponse.json(
+      { ok: false, error: "missing tool" },
+      { status: 400 },
+    );
+  }
+  const result = await dispatchTool(legacy.tool, legacy.params ?? {}, origin);
+  if (!result.ok) {
+    return NextResponse.json(result, { status: 400 });
+  }
+  return NextResponse.json(result);
 }

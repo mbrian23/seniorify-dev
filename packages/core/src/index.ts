@@ -20,6 +20,12 @@ export const Finding = z.object({
   category: FindingCategory,
   title: z.string(),
   detail: z.string(),
+  /**
+   * One-sentence "X vs Y" tradeoff the junior should take away. Names the
+   * alternative they didn't pick and what their choice optimized for.
+   * Optional for legacy rows; new findings always include it.
+   */
+  learn: z.string().optional(),
   status: z.enum(["open", "addressed", "defended", "overridden"]).default("open"),
   defense: z.string().optional(),
   decidedAt: z.string().optional(),

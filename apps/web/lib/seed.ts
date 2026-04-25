@@ -7,10 +7,10 @@ function daysAgo(d: number): string {
 
 function buildSeed(): Plan[] {
   const plans: Plan[] = [
-    // ---------- Ana: 4 plans, 3 signed cleanly with strong defenses, 1 in progress ----------
+    // ---------- Martin: 4 plans, 3 signed cleanly with strong defenses, 1 in progress ----------
     {
-      id: "pln_a0000001",
-      authorId: "ana",
+      id: "pln_m0000001",
+      authorId: "martin",
       ticketRef: "acme/worker-svc#412",
       draft:
         "Wrap the payments upstream call with @acme/retry, capped at 3 attempts and exponential backoff.\n" +
@@ -40,7 +40,7 @@ function buildSeed(): Plan[] {
         },
       ],
       summary:
-        "Ana wrapped the payments retry storm with @acme/retry plus a 24h idempotency-key window, defended against double-charge risk.",
+        "Martin wrapped the payments retry storm with @acme/retry plus a 24h idempotency-key window, defended against double-charge risk.",
       signedAt: daysAgo(28),
       signedPlan:
         "Wrap the payments upstream call with @acme/retry, capped at 3 attempts and exponential backoff.\n" +
@@ -49,8 +49,8 @@ function buildSeed(): Plan[] {
       createdAt: daysAgo(29),
     },
     {
-      id: "pln_a0000002",
-      authorId: "ana",
+      id: "pln_m0000002",
+      authorId: "martin",
       ticketRef: "acme/api#88",
       draft:
         "Add a Redis cache in front of /products with a 60s TTL and stale-while-revalidate.\n" +
@@ -90,7 +90,7 @@ function buildSeed(): Plan[] {
         },
       ],
       summary:
-        "Ana cached /products with 60s SWR plus locale in the cache key, after pricing PM confirmed the staleness SLA.",
+        "Martin cached /products with 60s SWR plus locale in the cache key, after pricing PM confirmed the staleness SLA.",
       signedAt: daysAgo(20),
       signedPlan:
         "Add a Redis cache in front of /products with a 60s TTL and stale-while-revalidate.\n" +
@@ -99,8 +99,8 @@ function buildSeed(): Plan[] {
       createdAt: daysAgo(21),
     },
     {
-      id: "pln_a0000003",
-      authorId: "ana",
+      id: "pln_m0000003",
+      authorId: "martin",
       ticketRef: "acme/worker-svc#412",
       draft:
         "Refactor retry logic into a shared @acme/retry middleware so other workers can adopt it.\n" +
@@ -130,7 +130,7 @@ function buildSeed(): Plan[] {
         },
       ],
       summary:
-        "Ana extracted a shared retry middleware and added a redaction unit test that the security team signed off on.",
+        "Martin extracted a shared retry middleware and added a redaction unit test that the security team signed off on.",
       signedAt: daysAgo(11),
       signedPlan:
         "Refactor retry logic into a shared @acme/retry middleware so other workers can adopt it.\n" +
@@ -139,36 +139,94 @@ function buildSeed(): Plan[] {
       createdAt: daysAgo(12),
     },
     {
-      id: "pln_a0000004",
-      authorId: "ana",
+      id: "pln_m0000004",
+      authorId: "martin",
       ticketRef: "acme/api#88",
       draft:
         "Add a /products/search endpoint backed by an inverted index in Redis.\n" +
         "Reuse the cache key strategy from /products.\n" +
-        "Gate behind a feature flag while we benchmark.",
+        "Gate behind a feature flag while we benchmark.\n" +
+        "Use axios for the upstream call to the catalog service.",
       revisions: [],
       findings: [
         {
           id: "f_1",
-          severity: "warn",
-          category: "performance",
-          title: "Inverted index in Redis may exceed memory budget at peak SKUs",
+          severity: "block",
+          category: "convention",
+          title: "Plan uses axios; team standard is @acme/http",
           detail:
-            "Catalog has 1.2M SKUs; an inverted index on title+desc can blow past the current Redis memory cap. Estimate index size before rollout.",
+            "Outbound calls in this codebase must go through @acme/http — it carries tracing, retries, and the auth header. Direct axios bypasses all three.",
           status: "open",
+          learn:
+            "@acme/http is the team's outbound primitive. It wraps fetch with OpenTelemetry spans, an exponential-backoff retry, and an internal auth header that the gateway requires. Anything raw (axios, fetch) won't be traced and will be rejected by mTLS in prod.",
         },
         {
           id: "f_2",
+          severity: "block",
+          category: "performance",
+          title: "Inverted index in Redis may exceed memory budget at peak SKUs",
+          detail:
+            "Catalog has 1.2M SKUs; an inverted index on title+desc can blow past the current 8GB Redis memory cap. Estimate index size before rollout.",
+          status: "open",
+          learn:
+            "Rule of thumb: posting list size ≈ unique tokens × avg doc-frequency × 4 bytes. At 1.2M SKUs you're easily into 4-6 GB just for postings. The catalog Redis is shared with the cart service — eviction there cascades into checkout.",
+        },
+        {
+          id: "f_3",
           severity: "warn",
           category: "ownership",
           title: "Search ranking is owned by the discovery team",
           detail:
             "Ranking signals belong to discovery. Confirm with their lead before duplicating logic in API.",
           status: "open",
+          learn:
+            "Ranking lives in `services/discovery/ranker.ts`. Touching ranking from the API layer creates two sources of truth — the discovery team has been bitten by this twice (RFC-014).",
+        },
+        {
+          id: "f_4",
+          severity: "warn",
+          category: "edge-case",
+          title: "Cache key strategy from /products doesn't include search query",
+          detail:
+            "Reusing the /products cache key would collide across different search queries. Two different searches would return the same cached payload.",
+          status: "open",
+          learn:
+            "The /products key is hash(querystring + Accept-Language). For /products/search you also need the `q` term and any active filters in the key — otherwise the first search wins and pollutes results for everyone.",
+        },
+        {
+          id: "f_5",
+          severity: "warn",
+          category: "compliance",
+          title: "Search queries may contain PII — log redaction not specified",
+          detail:
+            "Customers paste emails and order numbers into search. The plan logs raw queries for benchmarking, which violates the PII convention.",
+          status: "open",
+          learn:
+            "PII rule: anything user-typed must go through @acme/log's redactor before hitting the central pipeline. The redactor masks email-shaped strings and 16-digit sequences. Use `log.search({ q })` not `log.info(q)`.",
+        },
+        {
+          id: "f_6",
+          severity: "warn",
+          category: "edge-case",
+          title: "Feature flag has no rollback plan",
+          detail:
+            "Plan gates behind a flag but doesn't say who can flip it back, or what the kill criteria are. On-call needs both.",
+          status: "open",
+          learn:
+            "Every feature flag in this repo needs an owner + kill criteria documented in `flags.yaml`. Without it, on-call won't flip it at 3am — they'll page you instead.",
+        },
+        {
+          id: "f_7",
+          severity: "ok",
+          category: "simplicity",
+          title: "Endpoint shape mirrors /products — low cognitive load",
+          detail:
+            "Reusing the same response envelope as /products keeps the frontend integration trivial. No new client types needed.",
+          status: "addressed",
         },
       ],
       // not signed — in progress
-      createdAt: daysAgo(2),
+      createdAt: daysAgo(1),
     },
 
     // ---------- Pablo: 3 signed plans. Recurring "No idempotency guard" story. ----------

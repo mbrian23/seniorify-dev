@@ -71,41 +71,71 @@ export function Deck({ slides }: DeckProps) {
   );
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-white text-zinc-900 selection:bg-amber-100">
-      {/* ambient grid */}
+    <main className="relative h-screen w-screen overflow-hidden bg-[#fafaf7] text-zinc-900 selection:bg-amber-200/70">
+      {/* paper texture */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.04]"
+        className="pointer-events-none absolute inset-0 opacity-[0.5]"
         style={{
           backgroundImage:
-            "linear-gradient(to right, #000 1px, transparent 1px), linear-gradient(to bottom, #000 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
+            "radial-gradient(circle at 20% 10%, rgba(251, 191, 36, 0.18), transparent 40%), radial-gradient(circle at 80% 90%, rgba(244, 114, 182, 0.10), transparent 45%), radial-gradient(circle at 90% 10%, rgba(99, 102, 241, 0.08), transparent 50%)",
         }}
       />
-      {/* soft radial highlight */}
+      {/* dot grid */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 h-[720px] w-[720px] -translate-x-1/2 rounded-full bg-amber-50 blur-3xl"
+        className="pointer-events-none absolute inset-0 opacity-[0.55]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle, rgba(0,0,0,0.10) 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+          maskImage:
+            "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+        }}
       />
+      {/* film grain */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 mix-blend-multiply opacity-[0.06]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
+
+      {/* corner ornaments */}
+      <div aria-hidden className="pointer-events-none absolute left-6 top-6 h-3 w-3 border-l border-t border-zinc-900/30 md:left-10 md:top-10" />
+      <div aria-hidden className="pointer-events-none absolute right-6 top-6 h-3 w-3 border-r border-t border-zinc-900/30 md:right-10 md:top-10" />
+      <div aria-hidden className="pointer-events-none absolute bottom-6 left-6 h-3 w-3 border-b border-l border-zinc-900/30 md:bottom-10 md:left-10" />
+      <div aria-hidden className="pointer-events-none absolute bottom-6 right-6 h-3 w-3 border-b border-r border-zinc-900/30 md:bottom-10 md:right-10" />
 
       {/* slide — pointer-events disabled so empty area falls through to edge click zones; links/buttons re-enable */}
       <div className="pointer-events-none relative z-20 flex h-full w-full items-center justify-center px-6 md:px-12 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
-        <SlideFrame key={index} slide={current} index={index} />
+        <SlideFrame key={index} slide={current} index={index} total={total} />
       </div>
 
       {/* top bar */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-5 md:px-10">
-        <div className="pointer-events-auto flex items-center gap-2 font-mono text-xs lowercase text-zinc-700">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-zinc-900" />
-          seniorify · deck
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-5 md:px-12">
+        <div className="pointer-events-auto flex items-center gap-2.5 font-mono text-xs lowercase text-zinc-700">
+          <span className="relative inline-flex">
+            <span className="absolute inline-block h-2 w-2 animate-ping rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-block h-2 w-2 rounded-full bg-amber-500" />
+          </span>
+          <span className="tracking-wider">seniorify</span>
+          <span className="text-zinc-300">/</span>
+          <span className="text-zinc-500">deck</span>
         </div>
-        <div className="pointer-events-auto font-mono text-xs lowercase tabular-nums text-zinc-500">
-          {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+        <div className="pointer-events-auto flex items-center gap-3 font-mono text-xs lowercase tabular-nums text-zinc-500">
+          <span className="text-zinc-900">{String(index + 1).padStart(2, "0")}</span>
+          <span className="text-zinc-300">—</span>
+          <span>{String(total).padStart(2, "0")}</span>
         </div>
       </header>
 
       {/* progress + dots */}
-      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 px-6 py-5 md:px-10">
+      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 px-6 py-5 md:px-12">
         <div className="flex items-center justify-between">
           <div className="pointer-events-auto flex items-center gap-1.5">
             {slides.map((_, i) => (
@@ -114,23 +144,25 @@ export function Deck({ slides }: DeckProps) {
                 type="button"
                 onClick={() => setIndex(i)}
                 aria-label={`go to slide ${i + 1}`}
-                className={`h-1.5 rounded-full transition-all ${
+                className={`h-1.5 rounded-full transition-all duration-500 ease-out ${
                   i === index
-                    ? "w-6 bg-zinc-900"
-                    : "w-1.5 bg-zinc-300 hover:bg-zinc-500"
+                    ? "w-8 bg-zinc-900"
+                    : i < index
+                      ? "w-1.5 bg-zinc-400 hover:bg-zinc-600"
+                      : "w-1.5 bg-zinc-300 hover:bg-zinc-500"
                 }`}
               />
             ))}
           </div>
           <div className="pointer-events-auto flex items-center gap-2 font-mono text-[11px] lowercase text-zinc-500">
-            <kbd className="rounded border border-zinc-200 bg-white px-1.5 py-0.5">←</kbd>
-            <kbd className="rounded border border-zinc-200 bg-white px-1.5 py-0.5">→</kbd>
+            <kbd className="rounded border border-zinc-300 bg-white/80 px-1.5 py-0.5 shadow-sm backdrop-blur">←</kbd>
+            <kbd className="rounded border border-zinc-300 bg-white/80 px-1.5 py-0.5 shadow-sm backdrop-blur">→</kbd>
             <span>navigate</span>
           </div>
         </div>
-        <div className="h-px w-full overflow-hidden bg-zinc-100">
+        <div className="relative h-px w-full overflow-hidden bg-zinc-200">
           <div
-            className="h-full bg-zinc-900 transition-all duration-500 ease-out"
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-zinc-900 via-zinc-900 to-amber-500 transition-all duration-700 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>

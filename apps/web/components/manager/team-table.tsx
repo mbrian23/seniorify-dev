@@ -12,12 +12,12 @@ export type TeamRow = {
 };
 
 const READINESS: Record<string, number> = {
-  ana: 4,
+  martin: 4,
   pablo: 1,
   sofia: 3,
 };
 
-const KNOWN_AUTHORS = ["ana", "pablo", "sofia"] as const;
+const KNOWN_AUTHORS = ["martin", "pablo", "sofia"] as const;
 
 function topCategoryFor(plans: Plan[]): string {
   const counts = new Map<string, number>();
