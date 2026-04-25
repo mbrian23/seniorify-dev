@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__seniorify__(submit_plan|sign_plan)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-plan-event.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

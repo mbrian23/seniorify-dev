@@ -8,10 +8,7 @@
     "url": "https://seniorify.dev"
   },
   "homepage": "https://seniorify.dev",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mbrian23/seniorify-dev"
-  },
+  "repository": "https://github.com/mbrian23/seniorify-dev",
   "license": "MIT",
   "keywords": [
     "ai-governance",
