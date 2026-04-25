@@ -11,7 +11,7 @@ import {
   updateFinding,
 } from "@/lib/store";
 import { seedIfEmpty } from "@/lib/seed";
-import { teamConventions } from "@/lib/conventions";
+import { getTeamConventions } from "@/lib/conventions";
 
 const FINDING_STATUS = new Set(["open", "addressed", "defended", "overridden"]);
 
@@ -22,11 +22,14 @@ const FINDING_STATUS = new Set(["open", "addressed", "defended", "overridden"]);
  */
 async function runAudit(planId: string, ticketRef: string, planText: string) {
   try {
-    const ticket = await ticketSource.fetchTicket(ticketRef);
+    const [ticket, conventions] = await Promise.all([
+      ticketSource.fetchTicket(ticketRef),
+      getTeamConventions(),
+    ]);
     const findings = await auditPlan({
       ticket,
       plan: planText,
-      conventions: teamConventions,
+      conventions,
     });
     await addFindings(planId, findings);
   } catch (err) {

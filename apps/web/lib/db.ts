@@ -39,6 +39,16 @@ export function ensureSchema(): Promise<void> {
     await sql`CREATE INDEX IF NOT EXISTS plans_author_id_idx ON plans(author_id)`;
     await sql`CREATE INDEX IF NOT EXISTS plans_signed_at_idx ON plans(signed_at DESC)`;
     await sql`CREATE INDEX IF NOT EXISTS plans_created_at_idx ON plans(created_at DESC)`;
+
+    // Team settings — singleton row id='default' for the hackathon. Real
+    // multi-tenancy adds an org_id column.
+    await sql`
+      CREATE TABLE IF NOT EXISTS team_settings (
+        id          TEXT        PRIMARY KEY,
+        rules       JSONB       NOT NULL DEFAULT '[]'::jsonb,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
   })();
   return migrated;
 }

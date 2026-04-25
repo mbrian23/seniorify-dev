@@ -45,13 +45,21 @@ export default async function ManagerPage() {
   return (
     <div className="min-h-screen w-full bg-white text-zinc-900 font-sans">
       <div className="mx-auto w-full max-w-[1280px] px-8 py-12 flex flex-col gap-10">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-3xl text-zinc-900 lowercase tracking-tight">
-            engineering quality
-          </h1>
-          <p className="text-sm text-zinc-500">
-            audit trail across your team&apos;s ai-assisted work — last 30 days.
-          </p>
+        <header className="flex items-start justify-between gap-6">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-3xl text-zinc-900 lowercase tracking-tight">
+              engineering quality
+            </h1>
+            <p className="text-sm text-zinc-500">
+              audit trail across your team&apos;s ai-assisted work — last 30 days.
+            </p>
+          </div>
+          <a
+            href="/manager/settings"
+            className="rounded-[4px] border border-zinc-200 px-3 py-1.5 font-mono text-xs text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900"
+          >
+            company guidelines →
+          </a>
         </header>
 
         {empty ? (
