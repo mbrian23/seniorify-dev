@@ -1,18 +1,16 @@
 import type { Plan } from "@seniorify/core";
 import { PlanPanel } from "@/components/work/plan-panel";
 import { AuditPanel } from "@/components/work/audit-panel";
+import { getAllPlans } from "@/lib/store";
+import { seedIfEmpty } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
 
-type AuditsResponse = { plans: Plan[] };
-
 async function loadPlans(): Promise<Plan[]> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
+  // Server component talks to Postgres directly — no HTTP hop needed.
+  await seedIfEmpty();
   try {
-    const res = await fetch(`${base}/api/audits`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const data = (await res.json()) as AuditsResponse;
-    return Array.isArray(data.plans) ? data.plans : [];
+    return await getAllPlans();
   } catch {
     return [];
   }

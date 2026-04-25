@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import type { Plan } from "@seniorify/core";
 import { KpiTile } from "../../components/manager/kpi-tile";
 import {
@@ -13,21 +12,15 @@ import {
   RecentSignedPlans,
   getRecentSignedPlans,
 } from "../../components/manager/recent-signed-plans";
+import { getAllPlans } from "@/lib/store";
+import { seedIfEmpty } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
 
 async function fetchPlans(): Promise<Plan[]> {
+  await seedIfEmpty();
   try {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    const proto = h.get("x-forwarded-proto") ?? "http";
-    const base =
-      process.env.NEXT_PUBLIC_BASE_URL ??
-      (host ? `${proto}://${host}` : "http://localhost:3000");
-    const res = await fetch(`${base}/api/audits`, { cache: "no-store" });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { plans?: Plan[] };
-    return data.plans ?? [];
+    return await getAllPlans();
   } catch {
     return [];
   }
