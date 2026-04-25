@@ -20,7 +20,7 @@ export const Finding = z.object({
   category: FindingCategory,
   title: z.string(),
   detail: z.string(),
-  status: z.enum(["open", "addressed", "defended"]).default("open"),
+  status: z.enum(["open", "addressed", "defended", "overridden"]).default("open"),
   defense: z.string().optional(),
 });
 export type Finding = z.infer<typeof Finding>;
