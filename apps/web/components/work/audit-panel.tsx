@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import type { Finding, Plan } from "@seniorify/core";
 import { SeverityDot } from "./severity-dot";
 import { VoiceDefend } from "./voice-defend";
@@ -36,9 +36,27 @@ export function AuditPanel({ plan }: { plan: Plan }) {
   const [error, setError] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
 
-  const findings = plan.findings;
+  // Open findings come first, then decided ones (defended → addressed → overridden).
+  const STATUS_ORDER: Record<string, number> = {
+    open: 0,
+    defended: 1,
+    addressed: 2,
+    overridden: 3,
+  };
+  const findings = [...plan.findings].sort(
+    (a, b) =>
+      (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99),
+  );
   const openCount = findings.filter((f) => f.status === "open").length;
+  const decidedCount = findings.length - openCount;
+  const blockOpen = findings.filter(
+    (f) => f.status === "open" && f.severity === "block",
+  ).length;
+  const warnOpen = findings.filter(
+    (f) => f.status === "open" && f.severity === "warn",
+  ).length;
   const canSign = !plan.signedAt && openCount === 0 && findings.length > 0;
+  const firstDecidedIndex = findings.findIndex((f) => f.status !== "open");
 
   function refresh() {
     startTransition(() => {
@@ -110,15 +128,50 @@ export function AuditPanel({ plan }: { plan: Plan }) {
 
   return (
     <div className="flex flex-col gap-6 pb-24">
-      <div className="flex items-center gap-3">
-        <h2 className="text-sm text-zinc-900">findings</h2>
-        <span className="font-mono inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] border border-zinc-200 px-1.5 text-xs text-zinc-700">
-          {findings.length}
-        </span>
-        {openCount > 0 ? (
-          <span className="font-mono text-[11px] text-zinc-500">
-            {openCount} open
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 pb-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm lowercase text-zinc-900">findings</h2>
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[4px] border border-zinc-200 px-1.5 font-mono text-xs text-zinc-700">
+            {findings.length}
           </span>
+        </div>
+        {findings.length > 0 ? (
+          <div className="flex items-center gap-4 font-mono text-[11px]">
+            {blockOpen > 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-zinc-700">
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: "#B91C1C" }}
+                />
+                {blockOpen} block
+              </span>
+            ) : null}
+            {warnOpen > 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-zinc-700">
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: "#B45309" }}
+                />
+                {warnOpen} warn
+              </span>
+            ) : null}
+            {openCount > 0 ? (
+              <span className="text-zinc-500">{openCount} open</span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-emerald-700">
+                <span
+                  aria-hidden
+                  className="inline-block h-2 w-2 rounded-full bg-emerald-600"
+                />
+                all clear
+              </span>
+            )}
+            {decidedCount > 0 ? (
+              <span className="text-zinc-400">· {decidedCount} decided</span>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -128,15 +181,31 @@ export function AuditPanel({ plan }: { plan: Plan }) {
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {findings.map((f) => {
+          {findings.map((f, idx) => {
             const isOpen = f.status === "open";
             const isTyping = defending?.findingId === f.id;
             const isVoicing = voicingFindingId === f.id;
             const showActions = isOpen && !isTyping && !isVoicing;
+            const showDecidedHeader =
+              decidedCount > 0 && openCount > 0 && idx === firstDecidedIndex;
 
             return (
+              <Fragment key={f.id}>
+                {showDecidedHeader ? (
+                  <li
+                    aria-hidden
+                    className="flex items-center gap-3 pt-2"
+                  >
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400">
+                      decided
+                    </span>
+                    <span className="h-px flex-1 bg-zinc-100" />
+                    <span className="font-mono text-[10px] tabular-nums text-zinc-400">
+                      {decidedCount}
+                    </span>
+                  </li>
+                ) : null}
               <li
-                key={f.id}
                 className={`rounded-[4px] border p-4 ${
                   isOpen ? "border-zinc-200" : "border-zinc-100 bg-zinc-50/40"
                 }`}
@@ -290,6 +359,7 @@ export function AuditPanel({ plan }: { plan: Plan }) {
                   ) : null}
                 </div>
               </li>
+              </Fragment>
             );
           })}
         </ul>
@@ -302,20 +372,41 @@ export function AuditPanel({ plan }: { plan: Plan }) {
       ) : null}
 
       <div className="fixed bottom-6 right-6 z-10">
-        <button
-          type="button"
-          onClick={handleSign}
-          disabled={!canSign || signing}
-          className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-5 py-2.5 text-sm text-white shadow-none hover:bg-zinc-800 disabled:bg-zinc-300 disabled:border-zinc-300 disabled:cursor-not-allowed"
-        >
-          {signing
-            ? "signing..."
-            : plan.signedAt
-              ? "signed"
-              : openCount > 0
-                ? `Sign plan · ${openCount} open`
-                : "Sign plan"}
-        </button>
+        <div className="flex items-center gap-3 rounded-[6px] border border-zinc-200 bg-white/90 p-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)] backdrop-blur">
+          {!plan.signedAt ? (
+            <span className="pl-3 font-mono text-[11px] lowercase text-zinc-500">
+              {openCount > 0
+                ? `${openCount} open · cannot sign`
+                : "ready to sign"}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleSign}
+            disabled={!canSign || signing}
+            className="inline-flex items-center gap-2 rounded-[4px] border border-zinc-900 bg-zinc-900 px-4 py-2 font-mono text-xs lowercase text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400"
+          >
+            {signing ? (
+              <>
+                <span
+                  aria-hidden
+                  className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current"
+                />
+                signing...
+              </>
+            ) : plan.signedAt ? (
+              <>
+                <span aria-hidden>✓</span>
+                signed
+              </>
+            ) : (
+              <>
+                sign plan
+                <span aria-hidden>→</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
