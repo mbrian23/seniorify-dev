@@ -1,0 +1,7 @@
+{
+  "name": "acme-worker-demo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Deliberately-naive codebase used to demonstrate Seniorify's audit loop. Not part of the seniorify-dev pnpm workspace.",
+  "type": "module"
+}

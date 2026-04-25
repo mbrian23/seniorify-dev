@@ -38,7 +38,9 @@ Content-Type: application/json
 }
 ```
 
-You will receive `{ planId, status: "auditing" }` immediately. Poll
+You will receive `{ planId, status: "auditing", auditUrl }` immediately. **Show
+the `auditUrl` to the user once** — they can open it any time during the loop
+to defend out loud via the voice panel on the web. Then poll
 `GET https://seniorify.dev/api/audits/<planId>` every 1.5 s until the
 `findings` array is non-empty (typically 3–8 seconds).
 
@@ -49,22 +51,41 @@ For each finding, show the user:
 - the one-line **title**
 - the 1–3 sentence **detail**
 
-Then for the highest-severity open finding, ask the user a "defend your demo"
-question that probes whether they understand the risk.
+## 4. Let the user decide per finding — use AskUserQuestion
 
-## 4. Let the user decide per finding
+For every open finding, ask the user with the **AskUserQuestion** tool. Do not
+ask in prose — give them a structured choice. One question per finding,
+worded around the finding's risk:
 
-For each open finding the user can:
-- **address** it — they want you to revise the plan accordingly. Update the
-  plan in your head, call `submit_plan` again with the revised text. The
+```
+AskUserQuestion({
+  question: "<the 'defend your demo' question for this finding —
+              one pointed sentence under 25 words, no hints>",
+  options: [
+    { label: "Address",  description: "Revise the plan to fix this." },
+    { label: "Defend",   description: "Explain why this isn't a problem here." },
+    { label: "Override", description: "Accept the risk and move on." },
+    { label: "Open audit panel", description: "Defend out loud at <auditUrl>." }
+  ]
+})
+```
+
+Then act on the user's choice:
+
+- **Address** — ask a brief follow-up for what they want changed, revise the
+  plan in your head, and call `submit_plan` again with the revised text. The
   previous findings should now be resolved or different.
-- **defend** it — they have a reason it's not actually a problem. Call
+- **Defend** — ask the user for their one-line reason (free text), then call
   `update_finding` with `{ planId, findingId, status: "defended", defense:
-  "<their one-line reason>" }`.
-- **override** it — they accept the risk. Call `update_finding` with
+  "<their reason>" }`.
+- **Override** — ask for the one-line reason, then call `update_finding` with
   `{ planId, findingId, status: "overridden", defense: "<reason>" }`.
+- **Open audit panel** — print the `auditUrl` again and pause. The web panel
+  will record the defense via the same backend; once the user returns, re-poll
+  `GET /api/audits/<planId>` to pick up the new state.
 
-You never override on the user's behalf. Always ask.
+You never override or defend on the user's behalf. The user types or speaks
+their defense; you record it verbatim.
 
 ## 5. Sign the plan
 

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import type { Finding, Plan, Severity } from "@seniorify/core";
 import { SeverityDot } from "./severity-dot";
+import { VoiceDefend } from "./voice-defend";
 
 type DefendState = {
   findingId: string;
@@ -38,24 +39,18 @@ export function AuditPanel({ plan }: { plan: Plan }) {
   const [defending, setDefending] = useState<DefendState | null>(null);
   const [busyFindingId, setBusyFindingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [demoDefense, setDemoDefense] = useState("");
   const [signing, setSigning] = useState(false);
 
   const findings = plan.findings;
   const openCount = findings.filter((f) => f.status === "open").length;
   const canSign = !plan.signedAt && openCount === 0 && findings.length > 0;
 
-  const demoQuestion = useMemo(() => {
+  const topOpenFinding = useMemo(() => {
     const openFindings = findings.filter((f) => f.status === "open");
-    if (openFindings.length === 0) {
-      return "Why are retries safe here without an idempotency key?";
-    }
-    const sorted = [...openFindings].sort(
+    if (openFindings.length === 0) return null;
+    return [...openFindings].sort(
       (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity],
-    );
-    const top = sorted[0];
-    const t = top.title.trim().replace(/[.?!]+$/, "");
-    return `${t}?`;
+    )[0];
   }, [findings]);
 
   function refresh() {
@@ -92,31 +87,6 @@ export function AuditPanel({ plan }: { plan: Plan }) {
         defense: defense.trim(),
       });
       setDefending(null);
-      refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "failed to defend");
-    } finally {
-      setBusyFindingId(null);
-    }
-  }
-
-  async function handleDemoDefenseSubmit() {
-    if (!demoDefense.trim()) return;
-    const openFindings = findings.filter((f) => f.status === "open");
-    if (openFindings.length === 0) return;
-    const sorted = [...openFindings].sort(
-      (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity],
-    );
-    const top = sorted[0];
-    setError(null);
-    setBusyFindingId(top.id);
-    try {
-      await callMcp("defend", {
-        planId: plan.id,
-        findingId: top.id,
-        defense: demoDefense.trim(),
-      });
-      setDemoDefense("");
       refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "failed to defend");
@@ -283,29 +253,9 @@ export function AuditPanel({ plan }: { plan: Plan }) {
         </ul>
       )}
 
-      <div className="mt-2 rounded-[4px] border border-zinc-300 bg-zinc-50 p-5 flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-500">defend your demo</span>
-          <p className="text-sm font-semibold text-zinc-900">{demoQuestion}</p>
-        </div>
-        <textarea
-          value={demoDefense}
-          onChange={(e) => setDemoDefense(e.target.value)}
-          rows={3}
-          placeholder="write your reasoning..."
-          className="rounded-[4px] border border-zinc-200 bg-white p-3 font-sans text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 resize-none"
-        />
-        <div>
-          <button
-            type="button"
-            onClick={handleDemoDefenseSubmit}
-            disabled={!demoDefense.trim() || busyFindingId !== null}
-            className="rounded-[4px] border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-xs text-white hover:bg-zinc-800 disabled:opacity-40"
-          >
-            submit defense
-          </button>
-        </div>
-      </div>
+      {topOpenFinding ? (
+        <VoiceDefend planId={plan.id} finding={topOpenFinding} />
+      ) : null}
 
       {error ? (
         <div className="rounded-[4px] border border-[#B91C1C]/30 bg-red-50 p-3 text-xs text-[#B91C1C] font-mono">

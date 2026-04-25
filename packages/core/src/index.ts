@@ -22,6 +22,7 @@ export const Finding = z.object({
   detail: z.string(),
   status: z.enum(["open", "addressed", "defended", "overridden"]).default("open"),
   defense: z.string().optional(),
+  decidedAt: z.string().optional(),
 });
 export type Finding = z.infer<typeof Finding>;
 

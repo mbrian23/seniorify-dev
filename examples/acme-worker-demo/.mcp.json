@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "seniorify": {
+      "type": "http",
+      "url": "https://seniorify.dev/api/mcp"
+    }
+  }
+}

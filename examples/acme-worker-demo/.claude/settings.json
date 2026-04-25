@@ -1,0 +1,7 @@
+{
+  "$schema": "https://claude-code.dev/settings.schema.json",
+  "plugins": {
+    "marketplaces": ["mbrian23/seniorify-dev"],
+    "enabled": ["seniorify"]
+  }
+}

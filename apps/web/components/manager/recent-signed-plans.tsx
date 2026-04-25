@@ -1,4 +1,5 @@
 import type { Plan, Severity } from "@seniorify/core";
+import Link from "next/link";
 import { SEVERITY_COLORS } from "./severity";
 import { relativeTime } from "./relative-time";
 
@@ -71,12 +72,18 @@ export function RecentSignedPlans({ plans }: { plans: Plan[] }) {
                 key={p.id}
                 className="grid grid-cols-[140px_1fr_100px_180px_90px_90px] gap-4 items-center px-6 py-4 border-b border-zinc-100 last:border-b-0"
               >
-                <span className="font-mono text-xs text-zinc-900">
+                <Link
+                  href={`/manager/plan/${p.id}`}
+                  className="font-mono text-xs text-zinc-900 hover:underline underline-offset-4 decoration-zinc-300"
+                >
                   {shortId(p.id)}
-                </span>
-                <span className="text-sm text-zinc-800 truncate">
+                </Link>
+                <Link
+                  href={`/manager/plan/${p.id}`}
+                  className="text-sm text-zinc-800 truncate hover:underline underline-offset-4 decoration-zinc-300"
+                >
                   {p.summary ?? p.draft.split("\n")[0]}
-                </span>
+                </Link>
                 <span className="font-mono text-sm text-zinc-700">
                   @{p.authorId}
                 </span>
@@ -91,12 +98,12 @@ export function RecentSignedPlans({ plans }: { plans: Plan[] }) {
                 <span className="font-mono text-xs text-zinc-500">
                   {relativeTime(ts)}
                 </span>
-                <a
-                  href="#"
+                <Link
+                  href={`/manager/plan/${p.id}`}
                   className="font-mono text-xs text-zinc-900 underline underline-offset-4 decoration-zinc-300 hover:decoration-zinc-900"
                 >
                   open audit
-                </a>
+                </Link>
               </li>
             );
           })}

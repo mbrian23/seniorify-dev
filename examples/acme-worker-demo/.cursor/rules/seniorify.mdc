@@ -20,9 +20,7 @@ work — follow the Seniorify audit loop **before writing or editing code**:
      -d '{"tool":"submit_plan","params":{"authorId":"<user-handle>","ticketRef":"<owner/repo#N or slug>","plan":"<your plan>"}}'
    ```
 
-   You receive `{ planId, status: "auditing", auditUrl }`. Show `auditUrl`
-   to the user once — they can open it to defend out loud via the voice panel
-   on the web. Then poll
+   You receive `{ planId, status: "auditing" }`. Poll
    `GET https://seniorify.dev/api/audits/<planId>` every 1.5 s until the
    `findings` array is populated (3–8 s).
 
@@ -33,11 +31,8 @@ work — follow the Seniorify audit loop **before writing or editing code**:
    - **address** — revise the plan, resubmit `submit_plan`
    - **defend** — call `update_finding` with `status: "defended"` + their reason
    - **override** — call `update_finding` with `status: "overridden"` + their reason
-   - **defend on the web** — direct them to `auditUrl`; the voice panel
-     records the defense via the same backend. Re-poll `/api/audits/<planId>`
-     when they return.
 
-   Never override or defend on the user's behalf.
+   Never override on the user's behalf.
 
 5. **Sign the plan** with `sign_plan` once every finding is resolved.
 

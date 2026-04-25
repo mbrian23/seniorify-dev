@@ -82,6 +82,110 @@ export async function summarizePlanForManager(input: {
   return object.summary;
 }
 
+const EvaluateDefenseSchema = z.discriminatedUnion("verdict", [
+  z.object({
+    verdict: z.literal("probe"),
+    followup: z.string(),
+  }),
+  z.object({
+    verdict: z.literal("reject"),
+    followup: z.string(),
+  }),
+  z.object({
+    verdict: z.literal("accept"),
+    recordedDefense: z.string(),
+  }),
+]);
+export type EvaluateDefenseResult = z.infer<typeof EvaluateDefenseSchema>;
+
+const EVALUATE_SYSTEM_PROMPT = `You are a senior engineer evaluating a junior's spoken defense of a finding on their plan. The junior is in a live voice conversation; you are the brain behind the voice.
+
+You receive: the ticket, the team conventions, the full plan, the active finding under defense, the other findings on this plan (with how the junior resolved each), the conversation so far, and the junior's latest spoken utterance.
+
+Decide ONE of:
+- "probe" — the defense is incomplete or hand-wavy. Return a single pointed follow-up question that pressure-tests the gap. No hints. Under 25 words.
+- "reject" — the defense contradicts the ticket, the conventions, or an earlier defense the junior gave on this plan. Return a follow-up that names what's missing or contradictory. Under 25 words.
+- "accept" — the defense is specific, addresses the WHY in the finding, and is consistent with the rest of the plan. Return a "recordedDefense": a normalized one-line written form (under 25 words) suitable for a manager to read later. Strip filler, fix grammar, keep the junior's reasoning.
+
+Rules:
+- Spoken defenses ramble. Judge the substance, not the polish.
+- Cross-check against otherFindings — if the junior defended X earlier and is now contradicting it, reject.
+- Never invent risks the original finding didn't raise. Stay scoped to activeFinding.
+- Never accept "we'll handle it later" or "it's fine" without a concrete reason — probe.
+- Never give the junior the answer. You ask; they defend.`;
+
+export async function evaluateDefense(input: {
+  ticket: TicketContext;
+  conventions: TeamConventions;
+  plan: string;
+  activeFinding: {
+    id: string;
+    severity: string;
+    category: string;
+    title: string;
+    detail: string;
+  };
+  otherFindings: Array<{
+    title: string;
+    severity: string;
+    status: string;
+    defense?: string;
+  }>;
+  transcript: Array<{ role: "junior" | "senior"; text: string }>;
+  latestUtterance: string;
+}): Promise<EvaluateDefenseResult> {
+  const conventionsBlock = input.conventions.rules.length
+    ? `Team conventions:\n${input.conventions.rules.map((r) => `- ${r}`).join("\n")}`
+    : "Team conventions: (none provided)";
+
+  const otherFindingsBlock = input.otherFindings.length
+    ? input.otherFindings
+        .map(
+          (f) =>
+            `- [${f.severity}/${f.status}] ${f.title}${f.defense ? ` — defended: "${f.defense}"` : ""}`,
+        )
+        .join("\n")
+    : "(no other findings on this plan)";
+
+  const transcriptBlock = input.transcript.length
+    ? input.transcript.map((t) => `${t.role}: ${t.text}`).join("\n")
+    : "(no prior turns)";
+
+  const { object } = await generateObject({
+    model: "anthropic/claude-sonnet-4-6",
+    schema: EvaluateDefenseSchema,
+    system: EVALUATE_SYSTEM_PROMPT,
+    prompt: [
+      `Ticket: ${input.ticket.ref}`,
+      `Title: ${input.ticket.title}`,
+      `Body: ${input.ticket.body}`,
+      ``,
+      conventionsBlock,
+      ``,
+      `Junior's plan:`,
+      input.plan,
+      ``,
+      `Active finding under defense:`,
+      `- id: ${input.activeFinding.id}`,
+      `- severity: ${input.activeFinding.severity}`,
+      `- category: ${input.activeFinding.category}`,
+      `- title: ${input.activeFinding.title}`,
+      `- detail: ${input.activeFinding.detail}`,
+      ``,
+      `Other findings on this plan:`,
+      otherFindingsBlock,
+      ``,
+      `Conversation so far:`,
+      transcriptBlock,
+      ``,
+      `Junior's latest utterance:`,
+      input.latestUtterance,
+    ].join("\n"),
+  });
+
+  return object;
+}
+
 export async function generateDefenseQuestion(input: {
   ticket: TicketContext;
   finding: { title: string; detail: string };

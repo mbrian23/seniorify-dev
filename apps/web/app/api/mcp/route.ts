@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
 
   const tool = body.tool;
   const params = body.params ?? {};
+  const origin = new URL(req.url).origin;
+  const auditUrlFor = (planId: string) => `${origin}/work/${planId}`;
 
   if (!tool) return bad("missing tool");
 
@@ -85,7 +87,11 @@ export async function POST(req: NextRequest) {
         after(runAudit(created.id, ticketRef, planText));
         return NextResponse.json({
           ok: true,
-          result: { planId: created.id, status: "auditing" },
+          result: {
+            planId: created.id,
+            status: "auditing",
+            auditUrl: auditUrlFor(created.id),
+          },
         });
       }
 
@@ -140,7 +146,10 @@ export async function POST(req: NextRequest) {
         const planId = getString(params, "planId");
         const plan = await getPlan(planId);
         if (!plan) return bad(`plan not found: ${planId}`, 404);
-        return NextResponse.json({ ok: true, result: plan });
+        return NextResponse.json({
+          ok: true,
+          result: { ...plan, auditUrl: auditUrlFor(planId) },
+        });
       }
 
       default:

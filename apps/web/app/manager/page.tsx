@@ -12,6 +12,10 @@ import {
   RecentSignedPlans,
   getRecentSignedPlans,
 } from "../../components/manager/recent-signed-plans";
+import {
+  RecentDecisions,
+  getRecentDecisions,
+} from "../../components/manager/recent-decisions";
 import { getAllPlans } from "@/lib/store";
 import { seedIfEmpty } from "@/lib/seed";
 
@@ -131,6 +135,16 @@ export default async function ManagerPage() {
 
         <section>
           <RecentSignedPlans plans={recent} />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm text-zinc-900 lowercase">recent decisions</h2>
+            <p className="text-xs text-zinc-500">
+              addressed, defended, and overridden findings across your team — most recent first.
+            </p>
+          </div>
+          <RecentDecisions items={getRecentDecisions(plans)} />
         </section>
       </div>
     </div>

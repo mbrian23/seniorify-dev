@@ -98,15 +98,22 @@ export async function updateFinding(
   if (!existing) throw new Error(`plan not found: ${planId}`);
   const fIdx = existing.findings.findIndex((f) => f.id === findingId);
   if (fIdx === -1) throw new Error(`finding not found: ${findingId}`);
-  const updated: Finding[] = existing.findings.map((f, i) =>
-    i === fIdx
-      ? {
-          ...f,
-          ...(patch.status !== undefined ? { status: patch.status } : {}),
-          ...(patch.defense !== undefined ? { defense: patch.defense } : {}),
-        }
-      : f,
-  );
+  const updated: Finding[] = existing.findings.map((f, i) => {
+    if (i !== fIdx) return f;
+    const next: Finding = {
+      ...f,
+      ...(patch.status !== undefined ? { status: patch.status } : {}),
+      ...(patch.defense !== undefined ? { defense: patch.defense } : {}),
+    };
+    if (
+      patch.status !== undefined &&
+      patch.status !== "open" &&
+      !f.decidedAt
+    ) {
+      next.decidedAt = new Date().toISOString();
+    }
+    return next;
+  });
   const rows = (await sql`
     UPDATE plans
     SET findings = ${JSON.stringify(updated)}::jsonb

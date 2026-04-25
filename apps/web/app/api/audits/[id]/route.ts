@@ -3,7 +3,7 @@ import { getPlan } from "@/lib/store";
 import { seedIfEmpty } from "@/lib/seed";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   await seedIfEmpty();
@@ -12,5 +12,6 @@ export async function GET(
   if (!plan) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
-  return NextResponse.json(plan);
+  const auditUrl = `${new URL(req.url).origin}/work/${id}`;
+  return NextResponse.json({ ...plan, auditUrl });
 }
