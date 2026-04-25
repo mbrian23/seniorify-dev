@@ -182,6 +182,12 @@ export const SLIDES: ReadonlyArray<Slide> = [
     body: "a managed plugin for ai coding agents — sitting between the junior and the merge button.",
   },
   {
+    kind: "statement",
+    eyebrow: "the objective",
+    title: "the junior understands what's being shipped.",
+    body: "not approves. understands. can defend the change in standup, in review, six months from now in a postmortem.",
+  },
+  {
     kind: "mechanism",
     eyebrow: "the mechanism",
     title: "three surfaces. one loop.",
@@ -214,8 +220,8 @@ export const SLIDES: ReadonlyArray<Slide> = [
     sides: [
       {
         label: "for the junior",
-        headline: "coaching, in the moment.",
-        body: "the questions a senior would ask — surfaced while the work is still in flight, not after the PR is rejected.",
+        headline: "they understand what they ship.",
+        body: "the questions a senior would ask — surfaced while the work is still in flight. by the time the PR opens, the junior owns the answer.",
       },
       {
         label: "for the manager",
