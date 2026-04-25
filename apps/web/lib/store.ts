@@ -3,7 +3,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Finding, Plan } from "@seniorify/core";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Vercel serverless functions have a read-only root filesystem; only /tmp
+// is writable. Locally, persist next to the app for easy inspection.
+const ON_VERCEL = !!process.env.VERCEL;
+const DATA_DIR = ON_VERCEL ? "/tmp/seniorify" : path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "audits.json");
 
 type Store = { plans: Plan[] };
