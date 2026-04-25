@@ -1,50 +1,45 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Finding, Plan } from "@seniorify/core";
+import { sql, ensureSchema } from "./db";
 
-// Vercel serverless functions have a read-only root filesystem; only /tmp
-// is writable. Locally, persist next to the app for easy inspection.
-const ON_VERCEL = !!process.env.VERCEL;
-const DATA_DIR = ON_VERCEL ? "/tmp/seniorify" : path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "audits.json");
+type Row = {
+  id: string;
+  author_id: string;
+  ticket_ref: string;
+  draft: string;
+  findings: Finding[];
+  signed_plan: string | null;
+  signed_at: string | null;
+  summary: string | null;
+  status: string;
+  created_at: string;
+};
 
-type Store = { plans: Plan[] };
-
-async function ensureFile(): Promise<void> {
-  try {
-    await fs.access(DATA_FILE);
-  } catch {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    await fs.writeFile(DATA_FILE, JSON.stringify({ plans: [] }, null, 2), "utf8");
-  }
-}
-
-async function readStore(): Promise<Store> {
-  await ensureFile();
-  const raw = await fs.readFile(DATA_FILE, "utf8");
-  try {
-    const parsed = JSON.parse(raw) as Store;
-    if (!parsed.plans) return { plans: [] };
-    return parsed;
-  } catch {
-    return { plans: [] };
-  }
-}
-
-async function writeStore(store: Store): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(store, null, 2), "utf8");
+function rowToPlan(r: Row): Plan {
+  return {
+    id: r.id,
+    authorId: r.author_id,
+    ticketRef: r.ticket_ref,
+    draft: r.draft,
+    revisions: [],
+    findings: r.findings ?? [],
+    signedPlan: r.signed_plan ?? undefined,
+    signedAt: r.signed_at ?? undefined,
+    summary: r.summary ?? undefined,
+    createdAt: r.created_at,
+  };
 }
 
 export async function getAllPlans(): Promise<Plan[]> {
-  const { plans } = await readStore();
-  return plans;
+  await ensureSchema();
+  const rows = (await sql`SELECT * FROM plans ORDER BY created_at DESC`) as Row[];
+  return rows.map(rowToPlan);
 }
 
 export async function getPlan(id: string): Promise<Plan | null> {
-  const { plans } = await readStore();
-  return plans.find((p) => p.id === id) ?? null;
+  await ensureSchema();
+  const rows = (await sql`SELECT * FROM plans WHERE id = ${id} LIMIT 1`) as Row[];
+  return rows[0] ? rowToPlan(rows[0]) : null;
 }
 
 export async function createPlan(input: {
@@ -52,42 +47,42 @@ export async function createPlan(input: {
   ticketRef: string;
   draft: string;
 }): Promise<Plan> {
-  const store = await readStore();
+  await ensureSchema();
   const id = `pln_${randomUUID().slice(0, 8)}`;
-  const plan: Plan = {
-    id,
-    authorId: input.authorId,
-    ticketRef: input.ticketRef,
-    draft: input.draft,
-    revisions: [],
-    findings: [],
-    createdAt: new Date().toISOString(),
-  };
-  store.plans.push(plan);
-  await writeStore(store);
-  return plan;
+  const rows = (await sql`
+    INSERT INTO plans (id, author_id, ticket_ref, draft, findings, status)
+    VALUES (${id}, ${input.authorId}, ${input.ticketRef}, ${input.draft}, '[]'::jsonb, 'auditing')
+    RETURNING *
+  `) as Row[];
+  return rowToPlan(rows[0]);
+}
+
+export async function setStatus(planId: string, status: string): Promise<void> {
+  await ensureSchema();
+  await sql`UPDATE plans SET status = ${status} WHERE id = ${planId}`;
 }
 
 export async function addFindings(
   planId: string,
   findings: Finding[],
 ): Promise<Plan> {
-  const store = await readStore();
-  const idx = store.plans.findIndex((p) => p.id === planId);
-  if (idx === -1) throw new Error(`plan not found: ${planId}`);
-  const existing = store.plans[idx];
+  await ensureSchema();
+  const existing = await getPlan(planId);
+  if (!existing) throw new Error(`plan not found: ${planId}`);
   const startIndex = existing.findings.length;
   const renumbered: Finding[] = findings.map((f, i) => ({
     ...f,
     id: f.id && f.id.length > 0 ? f.id : `f_${startIndex + i + 1}`,
   }));
-  const updated: Plan = {
-    ...existing,
-    findings: [...existing.findings, ...renumbered],
-  };
-  store.plans[idx] = updated;
-  await writeStore(store);
-  return updated;
+  const merged = [...existing.findings, ...renumbered];
+  const rows = (await sql`
+    UPDATE plans
+    SET findings = ${JSON.stringify(merged)}::jsonb,
+        status   = 'awaiting_defense'
+    WHERE id = ${planId}
+    RETURNING *
+  `) as Row[];
+  return rowToPlan(rows[0]);
 }
 
 export async function updateFinding(
@@ -98,41 +93,71 @@ export async function updateFinding(
     defense?: string;
   },
 ): Promise<Plan> {
-  const store = await readStore();
-  const idx = store.plans.findIndex((p) => p.id === planId);
-  if (idx === -1) throw new Error(`plan not found: ${planId}`);
-  const plan = store.plans[idx];
-  const fIdx = plan.findings.findIndex((f) => f.id === findingId);
+  await ensureSchema();
+  const existing = await getPlan(planId);
+  if (!existing) throw new Error(`plan not found: ${planId}`);
+  const fIdx = existing.findings.findIndex((f) => f.id === findingId);
   if (fIdx === -1) throw new Error(`finding not found: ${findingId}`);
-  const updatedFinding: Finding = {
-    ...plan.findings[fIdx],
-    ...(patch.status !== undefined ? { status: patch.status } : {}),
-    ...(patch.defense !== undefined ? { defense: patch.defense } : {}),
-  };
-  const updatedPlan: Plan = {
-    ...plan,
-    findings: plan.findings.map((f, i) => (i === fIdx ? updatedFinding : f)),
-  };
-  store.plans[idx] = updatedPlan;
-  await writeStore(store);
-  return updatedPlan;
+  const updated: Finding[] = existing.findings.map((f, i) =>
+    i === fIdx
+      ? {
+          ...f,
+          ...(patch.status !== undefined ? { status: patch.status } : {}),
+          ...(patch.defense !== undefined ? { defense: patch.defense } : {}),
+        }
+      : f,
+  );
+  const rows = (await sql`
+    UPDATE plans
+    SET findings = ${JSON.stringify(updated)}::jsonb
+    WHERE id = ${planId}
+    RETURNING *
+  `) as Row[];
+  return rowToPlan(rows[0]);
 }
 
 export async function signPlan(
   planId: string,
   summary: string,
 ): Promise<Plan> {
-  const store = await readStore();
-  const idx = store.plans.findIndex((p) => p.id === planId);
-  if (idx === -1) throw new Error(`plan not found: ${planId}`);
-  const plan = store.plans[idx];
-  const updated: Plan = {
-    ...plan,
-    signedAt: new Date().toISOString(),
-    signedPlan: plan.draft,
-    summary,
-  };
-  store.plans[idx] = updated;
-  await writeStore(store);
-  return updated;
+  await ensureSchema();
+  const existing = await getPlan(planId);
+  if (!existing) throw new Error(`plan not found: ${planId}`);
+  const rows = (await sql`
+    UPDATE plans
+    SET signed_at = now(),
+        signed_plan = ${existing.draft},
+        summary = ${summary},
+        status = 'signed'
+    WHERE id = ${planId}
+    RETURNING *
+  `) as Row[];
+  return rowToPlan(rows[0]);
+}
+
+/**
+ * Insert a fully-formed plan (used by the seed loader).
+ */
+export async function upsertSeedPlan(plan: Plan): Promise<void> {
+  await ensureSchema();
+  await sql`
+    INSERT INTO plans (
+      id, author_id, ticket_ref, draft, findings,
+      signed_plan, signed_at, summary, status, created_at
+    ) VALUES (
+      ${plan.id}, ${plan.authorId}, ${plan.ticketRef}, ${plan.draft},
+      ${JSON.stringify(plan.findings)}::jsonb,
+      ${plan.signedPlan ?? null}, ${plan.signedAt ?? null},
+      ${plan.summary ?? null},
+      ${plan.signedAt ? "signed" : plan.findings.length > 0 ? "awaiting_defense" : "auditing"},
+      ${plan.createdAt}
+    )
+    ON CONFLICT (id) DO NOTHING
+  `;
+}
+
+export async function plansCount(): Promise<number> {
+  await ensureSchema();
+  const rows = (await sql`SELECT COUNT(*)::int AS c FROM plans`) as { c: number }[];
+  return rows[0]?.c ?? 0;
 }

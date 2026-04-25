@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { after } from "next/server";
 import { auditPlan, summarizePlanForManager } from "@seniorify/agent";
 import { ticketSource } from "@seniorify/collector";
 import {
   addFindings,
   createPlan,
   getPlan,
+  setStatus,
   signPlan,
   updateFinding,
 } from "@/lib/store";
@@ -12,6 +14,26 @@ import { seedIfEmpty } from "@/lib/seed";
 import { teamConventions } from "@/lib/conventions";
 
 const FINDING_STATUS = new Set(["open", "addressed", "defended", "overridden"]);
+
+/**
+ * Runs the audit pipeline for a plan in the background after the HTTP
+ * response has been sent. Vercel keeps the function alive until this
+ * resolves, so the LLM call doesn't block the MCP tool's reply.
+ */
+async function runAudit(planId: string, ticketRef: string, planText: string) {
+  try {
+    const ticket = await ticketSource.fetchTicket(ticketRef);
+    const findings = await auditPlan({
+      ticket,
+      plan: planText,
+      conventions: teamConventions,
+    });
+    await addFindings(planId, findings);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "audit failed";
+    await setStatus(planId, `error: ${message.slice(0, 200)}`);
+  }
+}
 
 type McpBody = {
   tool?: string;
@@ -51,21 +73,16 @@ export async function POST(req: NextRequest) {
         const authorId = getString(params, "authorId");
         const ticketRef = getString(params, "ticketRef");
         const planText = getString(params, "plan");
-        const ticket = await ticketSource.fetchTicket(ticketRef);
-        const findings = await auditPlan({
-          ticket,
-          plan: planText,
-          conventions: teamConventions,
-        });
         const created = await createPlan({
           authorId,
           ticketRef,
           draft: planText,
         });
-        const updated = await addFindings(created.id, findings);
+        // Decoupled: respond now, run the audit after.
+        after(runAudit(created.id, ticketRef, planText));
         return NextResponse.json({
           ok: true,
-          result: { planId: updated.id, findings: updated.findings },
+          result: { planId: created.id, status: "auditing" },
         });
       }
 

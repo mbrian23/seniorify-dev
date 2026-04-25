@@ -1,10 +1,5 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import type { Plan } from "@seniorify/core";
-import { getAllPlans } from "./store";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "audits.json");
+import { plansCount, upsertSeedPlan } from "./store";
 
 function daysAgo(d: number): string {
   return new Date(Date.now() - d * 86_400_000).toISOString();
@@ -377,9 +372,10 @@ function buildSeed(): Plan[] {
 }
 
 export async function seedIfEmpty(): Promise<void> {
-  const existing = await getAllPlans();
-  if (existing.length > 0) return;
+  const count = await plansCount();
+  if (count > 0) return;
   const plans = buildSeed();
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify({ plans }, null, 2), "utf8");
+  for (const plan of plans) {
+    await upsertSeedPlan(plan);
+  }
 }
