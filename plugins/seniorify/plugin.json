@@ -1,0 +1,24 @@
+{
+  "$schema": "https://claude-plugins.dev/plugin-manifest.schema.json",
+  "name": "seniorify",
+  "version": "0.1.0",
+  "description": "Audit your AI-assisted code before it ships. Help juniors take responsibility for their work; give managers a readable audit trail.",
+  "author": {
+    "name": "Seniorify",
+    "url": "https://seniorify.dev"
+  },
+  "homepage": "https://seniorify.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mbrian23/seniorify-dev"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ai-governance",
+    "code-review",
+    "engineering-management",
+    "audit",
+    "dora",
+    "compliance"
+  ]
+}

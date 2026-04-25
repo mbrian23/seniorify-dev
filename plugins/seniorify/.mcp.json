@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "seniorify": {
+      "type": "http",
+      "url": "https://seniorify.dev/api/mcp",
+      "description": "Seniorify audit MCP. Tools: submit_plan, defend, sign_plan, update_finding, get_audit."
+    }
+  }
+}

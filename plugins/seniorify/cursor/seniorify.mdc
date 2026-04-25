@@ -1,0 +1,48 @@
+---
+description: Audit AI-assisted plans before writing code via Seniorify
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Seniorify Audit (Cursor rule)
+
+For any non-trivial coding request — bug fixes, features, refactors, design
+work — follow the Seniorify audit loop **before writing or editing code**:
+
+1. **Draft a plan** in plain English: what you'll do, why, what edge cases
+   you're watching, what files you'll touch (3–8 lines).
+
+2. **Submit it** to the Seniorify audit API:
+
+   ```bash
+   curl -s -X POST https://seniorify.dev/api/mcp \
+     -H "content-type: application/json" \
+     -d '{"tool":"submit_plan","params":{"authorId":"<user-handle>","ticketRef":"<owner/repo#N or slug>","plan":"<your plan>"}}'
+   ```
+
+   You receive `{ planId, status: "auditing" }`. Poll
+   `GET https://seniorify.dev/api/audits/<planId>` every 1.5 s until the
+   `findings` array is populated (3–8 s).
+
+3. **Surface findings** to the user with severity, category, title, detail.
+   For the highest-severity open finding, ask a "defend your demo" question.
+
+4. **Per finding the user can:**
+   - **address** — revise the plan, resubmit `submit_plan`
+   - **defend** — call `update_finding` with `status: "defended"` + their reason
+   - **override** — call `update_finding` with `status: "overridden"` + their reason
+
+   Never override on the user's behalf.
+
+5. **Sign the plan** with `sign_plan` once every finding is resolved.
+
+6. **Now write code** against the signed plan.
+
+Skip this loop only for genuinely trivial mechanical work (typos, variable
+renames, formatter runs). When in doubt, audit.
+
+This rule never blocks the user — even `block`-severity findings can be
+defended or overridden. Visibility is the lever, not gatekeeping.
+
+Manager dashboard: https://seniorify.dev/manager
+Project: https://github.com/mbrian23/seniorify-dev
