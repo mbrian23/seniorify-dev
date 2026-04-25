@@ -1,0 +1,16 @@
+{
+  "name": "seniorify-dev",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm --filter @seniorify/web dev",
+    "build": "pnpm --filter @seniorify/web build",
+    "start": "pnpm --filter @seniorify/web start",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
