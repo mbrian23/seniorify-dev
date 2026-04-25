@@ -1,0 +1,10 @@
+{
+  "name": "seniorify",
+  "version": "0.1.0",
+  "description": "Audit your AI-assisted code before it ships. Help juniors take responsibility for their work; give managers a readable audit trail.",
+  "homepage": "https://seniorify.dev",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Seniorify"
+  }
+}
