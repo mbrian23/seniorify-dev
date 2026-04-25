@@ -5,6 +5,12 @@ import { TitleSlide } from "./slides/title-slide";
 import { StatementSlide } from "./slides/statement-slide";
 import { QuoteSlide } from "./slides/quote-slide";
 import { PillarsSlide } from "./slides/pillars-slide";
+import { ResearchSlide } from "./slides/research-slide";
+import { AudienceSlide } from "./slides/audience-slide";
+import { ExampleSlide } from "./slides/example-slide";
+import { MechanismSlide } from "./slides/mechanism-slide";
+import { StackSlide } from "./slides/stack-slide";
+import { CatchesSlide } from "./slides/catches-slide";
 import { ClosingSlide } from "./slides/closing-slide";
 
 type Props = {
@@ -45,14 +51,19 @@ function render(slide: Slide) {
       return <QuoteSlide slide={slide} />;
     case "pillars":
       return <PillarsSlide slide={slide} />;
+    case "research":
+      return <ResearchSlide slide={slide} />;
+    case "audience":
+      return <AudienceSlide slide={slide} />;
+    case "example":
+      return <ExampleSlide slide={slide} />;
+    case "mechanism":
+      return <MechanismSlide slide={slide} />;
+    case "stack":
+      return <StackSlide slide={slide} />;
+    case "catches":
+      return <CatchesSlide slide={slide} />;
     case "closing":
       return <ClosingSlide slide={slide} />;
-    // research / audience / example slide types exist in slides.ts but
-    // their renderers haven't been wired yet — return null so the deck
-    // builds. TODO: add the missing slide components.
-    case "research":
-    case "audience":
-    case "example":
-      return null;
   }
 }

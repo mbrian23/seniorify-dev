@@ -57,6 +57,27 @@ export type ExampleSlide = {
   }>;
 };
 
+export type MechanismSlide = {
+  kind: "mechanism";
+  eyebrow: string;
+  title: string;
+  body?: string;
+  parts: ReadonlyArray<{
+    label: string;
+    headline: string;
+    body: string;
+    actor: string;
+  }>;
+};
+
+export type StackSlide = {
+  kind: "stack";
+  eyebrow: string;
+  title: string;
+  body?: string;
+  tools: ReadonlyArray<{ name: string; note: string }>;
+};
+
 export type CatchesSlide = {
   kind: "catches";
   eyebrow: string;
@@ -80,6 +101,8 @@ export type Slide =
   | ResearchSlide
   | AudienceSlide
   | ExampleSlide
+  | MechanismSlide
+  | StackSlide
   | CatchesSlide
   | ClosingSlide;
 
@@ -159,6 +182,32 @@ export const SLIDES: ReadonlyArray<Slide> = [
     body: "a managed plugin for ai coding agents — sitting between the junior and the merge button.",
   },
   {
+    kind: "mechanism",
+    eyebrow: "the mechanism",
+    title: "three surfaces. one loop.",
+    body: "a plugin where the junior works, an mcp server where the agent thinks, and a dashboard where the manager watches.",
+    parts: [
+      {
+        label: "plugin",
+        headline: "in the editor.",
+        body: "a claude code plugin sits in the junior's loop and surfaces the senior's questions before the merge.",
+        actor: "for the junior",
+      },
+      {
+        label: "mcp server",
+        headline: "in the agent.",
+        body: "the agent reads conventions, internal libraries, and prior audits over mcp — context the model would never have on its own.",
+        actor: "for the ai",
+      },
+      {
+        label: "dashboard",
+        headline: "for the manager.",
+        body: "every plan, every override, every recurring finding — observability over the team's ai-assisted work.",
+        actor: "for the manager",
+      },
+    ],
+  },
+  {
     kind: "audience",
     eyebrow: "the customer",
     title: "one product. two people.",
@@ -228,6 +277,22 @@ export const SLIDES: ReadonlyArray<Slide> = [
         label: "skipping an internal middleware",
         body: "a new route that bypasses the team's auth or rate-limit layer because the agent didn't know it existed.",
       },
+    ],
+  },
+  {
+    kind: "stack",
+    eyebrow: "built on vercel",
+    title: "the stack.",
+    body: "every piece runs on vercel — from the agent loop to the manager dashboard.",
+    tools: [
+      { name: "next.js 16", note: "app router, server components, the dashboard." },
+      { name: "vercel functions", note: "the api routes — audits, conventions, mcp." },
+      { name: "routing middleware", note: "edge-routed multi-tenant + the deck subdomain." },
+      { name: "vercel ai gateway", note: "model routing, key rotation, spend control." },
+      { name: "ai sdk", note: "streaming agent loop + tool calls." },
+      { name: "neon (marketplace)", note: "postgres for plans, audits, conventions." },
+      { name: "vercel oidc", note: "service-to-service auth without long-lived keys." },
+      { name: "vercel domains", note: "seniorify.dev + deck.seniorify.dev." },
     ],
   },
   {
