@@ -1,0 +1,22 @@
+{
+  "name": "seniorify",
+  "interface": {
+    "displayName": "Seniorify"
+  },
+  "plugins": [
+    {
+      "name": "seniorify",
+      "source": {
+        "source": "local",
+        "path": "./plugins/seniorify"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "description": "Audit-and-sign loop for AI-assisted coding. Draft a plan, get senior-level findings, defend or override, sign — then ship. Manager dashboard at seniorify.dev/manager.",
+      "version": "0.1.0"
+    }
+  ]
+}
