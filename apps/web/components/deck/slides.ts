@@ -190,7 +190,7 @@ export const SLIDES: ReadonlyArray<Slide> = [
       {
         label: "plugin",
         headline: "in the editor.",
-        body: "a claude code plugin sits in the junior's loop and surfaces the senior's questions before the merge.",
+        body: "a plugin sits in the junior's coding agent — codex, claude code, cursor — and surfaces the senior's questions before the merge.",
         actor: "for the junior",
       },
       {
