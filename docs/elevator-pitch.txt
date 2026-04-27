@@ -1,0 +1,1 @@
+Seniorify: a senior in the loop for AI coding agents. Audits the plan before code is written — your team's conventions and tradeoffs — so juniors learn what's shipping, not just rubber-stamp it.

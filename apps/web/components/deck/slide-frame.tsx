@@ -13,6 +13,7 @@ import { StackSlide } from "./slides/stack-slide";
 import { CatchesSlide } from "./slides/catches-slide";
 import { ClosingSlide } from "./slides/closing-slide";
 import { HorizonSlide } from "./slides/horizon-slide";
+import { ContactSlide } from "./slides/contact-slide";
 
 type Props = {
   slide: Slide;
@@ -85,5 +86,7 @@ function render(slide: Slide, _index: number, _total: number) {
       return <ClosingSlide slide={slide} />;
     case "horizon":
       return <HorizonSlide slide={slide} />;
+    case "contact":
+      return <ContactSlide slide={slide} />;
   }
 }

@@ -7,8 +7,13 @@ export async function POST() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { ok: false, error: "OPENAI_API_KEY not configured" },
-      { status: 500 },
+      {
+        ok: false,
+        error:
+          "Voice defense is disabled in this public demo. The audit pipeline is real — DM Martin on LinkedIn for a live pilot.",
+        demo: true,
+      },
+      { status: 503 },
     );
   }
 

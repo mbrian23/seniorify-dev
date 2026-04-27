@@ -1,0 +1,1 @@
+Next.js, React, TypeScript, Tailwind CSS, Vercel, Vercel Functions, Fluid Compute, Vercel AI Gateway, Vercel AI SDK, Vercel Routing Middleware, Vercel Marketplace, Neon, Postgres, Node.js, pnpm, Turborepo, Zod, ESLint, Model Context Protocol (MCP), Claude, GPT, OpenAI Codex, Claude Code, Cursor

@@ -49,6 +49,7 @@ export function ensureSchema(): Promise<void> {
         updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `;
+
   })();
   return migrated;
 }

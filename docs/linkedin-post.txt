@@ -1,0 +1,25 @@
+🏆 I won the Montevideo Zero to Agent hackathon!
+
+As part of Vercel's global build week, I built Seniorify.dev solo and took home the local win.
+
+Every junior now has a senior in their pocket. AI is making them incredibly fast — fluency is rising, but judgment isn't. If the AI does all the thinking, who is training the seniors of tomorrow?
+
+The future has a senior staffing problem.
+
+I built Seniorify.dev to fix this. It's a "senior-in-the-loop" for tools like Codex, Cursor, and Claude Code.
+
+It kills the blind copy-paste. Seniorify.dev intercepts the PR before it's written to verify the junior actually understands what's happening, interrogating them based on the team's internal conventions:
+
+"You chose axios, but this codebase uses @acme/internal-http. Why?"
+"Invoices are in /v2/billing, not /api/users. Defend your reasoning."
+
+It turns AI from an autocomplete tool into a Socratic tutor.
+
+This is Programming 101 for the AI age: the code is free, but the defense is mandatory. Whether it's a student submitting an assignment or a junior hitting merge, Seniorify.dev forces them to articulate the why, not just the what.
+
+Huge thanks to the incredible organizing team at Cubo Itaú Montevideo (Tomas, Agustín, Julián, Salvador, Martín, and Mateo) and the amazing jury who believed in the project (Ansh Gupta, Daniel Wintermeyer, Alexander Farndin, Agustín Álvarez, Leonardo Ollero Lopez, and Pedro Henrique de Freitas). 🙏
+
+Want to try it?
+Is your team (or your classroom) actually growing, or just copy-pasting? Let's talk.
+
+I'm currently piloting Seniorify.dev with a handful of engineering teams and CS programs. DM me if you want in.

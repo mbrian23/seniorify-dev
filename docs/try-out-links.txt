@@ -1,0 +1,6 @@
+Live site: https://seniorify.dev
+Live audit demo: https://seniorify.dev/work
+Manager dashboard: https://seniorify.dev/manager
+Pitch deck: https://deck.seniorify.dev
+MCP server endpoint: https://seniorify.dev/api/mcp
+GitHub: https://github.com/mbrian23/seniorify-dev

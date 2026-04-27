@@ -101,6 +101,17 @@ export type HorizonSlide = {
   contexts: ReadonlyArray<{ label: string; headline: string; body: string }>;
 };
 
+export type ContactSlide = {
+  kind: "contact";
+  eyebrow: string;
+  title: string;
+  body?: string;
+  handleLabel: string;
+  handle: string;
+  href: string;
+  qrSrc: string;
+};
+
 export type Slide =
   | TitleSlide
   | StatementSlide
@@ -113,7 +124,8 @@ export type Slide =
   | StackSlide
   | CatchesSlide
   | ClosingSlide
-  | HorizonSlide;
+  | HorizonSlide
+  | ContactSlide;
 
 export const SLIDES: ReadonlyArray<Slide> = [
   {
@@ -186,6 +198,16 @@ export const SLIDES: ReadonlyArray<Slide> = [
     kind: "statement",
     eyebrow: "the bet",
     title: "the next decade has a staffing problem.",
+  },
+  {
+    kind: "contact",
+    eyebrow: "let's talk",
+    title: "find me on linkedin.",
+    body: "scan the code, or follow the link. happy to talk seniors, juniors, or anything in between.",
+    handleLabel: "linkedin",
+    handle: "in/martinbrianmdbn",
+    href: "https://www.linkedin.com/in/martinbrianmdbn/",
+    qrSrc: "/linkedin-qr.svg",
   },
   {
     kind: "closing",

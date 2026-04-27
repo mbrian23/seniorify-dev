@@ -3,6 +3,7 @@ import { evaluateDefense } from "@seniorify/agent";
 import { ticketSource } from "@seniorify/collector";
 import { getPlan } from "@/lib/store";
 import { getTeamConventions } from "@/lib/conventions";
+import { isDemoMode } from "@/lib/demo";
 
 type TranscriptTurn = { role: "junior" | "senior"; text: string };
 
@@ -18,6 +19,18 @@ function bad(message: string, status = 400) {
 }
 
 export async function POST(req: NextRequest) {
+  if (isDemoMode()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Voice evaluation is disabled in this public demo. DM Martin on LinkedIn to see the live pipeline.",
+        demo: true,
+      },
+      { status: 503 },
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
